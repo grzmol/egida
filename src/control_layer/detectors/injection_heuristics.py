@@ -187,4 +187,6 @@ class InjectionHeuristics:
         if not isinstance(ctx.params, InjectionParams):
             raise TypeError(f"expected InjectionParams, got {type(ctx.params).__name__}")
         texts = list(iter_texts(ctx.interaction, ctx.side))
-        return await anyio.to_thread.run_sync(_scan, ctx.control_id, texts, ctx.params)
+        return await anyio.to_thread.run_sync(
+            _scan, ctx.control_id, texts, ctx.params, abandon_on_cancel=True
+        )

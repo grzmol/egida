@@ -60,7 +60,11 @@ PATTERNS: tuple[Pattern, ...] = (
         ),
         None,
     ),
-    ("email", re.compile(r"\b[\w.%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b"), None),
+    (
+        "email",
+        re.compile(r"(?<![\w.%+-])[\w.%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b"),
+        None,
+    ),
 )
 ENTITIES = frozenset(label for label, _, _ in PATTERNS)
 TAGS = ("owasp.llm02-2025", "atlas.AML.T0057")
@@ -72,13 +76,19 @@ def find_pii(
 ) -> list[tuple[str, int, int]]:
     """(label, start, end) for each PII item of the given entity types, sorted by position."""
     hits: list[tuple[str, int, int]] = []
+    taken = bytearray(len(text))
     for label, pattern, is_valid in (*PATTERNS, *extra):
         if label not in entities:
             continue
         for m in pattern.finditer(text):
-            overlaps = any(m.start() < end and start < m.end() for _, start, end in hits)
-            if not overlaps and (is_valid is None or is_valid(m.group())):
-                hits.append((label, m.start(), m.end()))
+            start, end = m.span()
+            if (
+                start < end
+                and not any(taken[start:end])
+                and (is_valid is None or is_valid(m.group()))
+            ):
+                taken[start:end] = b"\x01" * (end - start)
+                hits.append((label, start, end))
     return sorted(hits, key=lambda h: h[1])
 
 
@@ -93,9 +103,13 @@ class PiiParams(BaseModel):
     def _compiles(cls, patterns: dict[str, str]) -> dict[str, str]:
         for label, rx in patterns.items():
             try:
-                re.compile(rx)
+                compiled = re.compile(rx)
             except re.error as e:
                 raise ValueError(f"extra_patterns.{label}: {e}") from e
+            if compiled.search("") is not None:
+                raise ValueError(f"extra_patterns.{label}: must not match the empty string")
+            if label in ENTITIES:
+                raise ValueError(f"extra_patterns.{label}: clashes with a built-in entity")
         return patterns
 
 
@@ -119,4 +133,6 @@ class PiiDetector:
         if not isinstance(ctx.params, PiiParams):
             raise TypeError(f"expected PiiParams, got {type(ctx.params).__name__}")
         texts = list(iter_texts(ctx.interaction, ctx.side))
-        return await anyio.to_thread.run_sync(_scan, ctx.control_id, texts, ctx.params)
+        return await anyio.to_thread.run_sync(
+            _scan, ctx.control_id, texts, ctx.params, abandon_on_cancel=True
+        )

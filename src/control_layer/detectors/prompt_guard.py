@@ -9,7 +9,7 @@ import os
 import re
 from functools import lru_cache
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 import anyio
 import numpy as np
@@ -33,7 +33,7 @@ class PromptGuardParams(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     max_windows: int = Field(default=16, ge=1)  # per text; longer input is stopped by C17
-    roles: tuple[str, ...] = ("system", "user", "tool")
+    roles: tuple[Literal["system", "user", "assistant", "tool"], ...] = ("system", "user", "tool")
     scan_tool_descriptions: bool = True
 
 
@@ -81,7 +81,9 @@ class PromptGuardDetector:
     def malicious_probability(self, text: str, max_windows: int) -> tuple[float, int]:
         """Max P(MALICIOUS) over overlapping token windows, and the number of windows scored."""
         first = self._tokenizer.encode(text)
-        windows = [first, *first.overflowing][:max_windows]
+        windows = [first, *first.overflowing]
+        if len(windows) > max_windows:  # keep head and tail: attacks hide at either end
+            windows = windows[: max_windows // 2] + windows[-(max_windows - max_windows // 2) :]
         best = 0.0
         for window in windows:
             feed = {
@@ -119,4 +121,6 @@ class PromptGuardDetector:
         if self._limiter is None:
             self._limiter = anyio.CapacityLimiter(2)
         texts = list(iter_texts(ctx.interaction, ctx.side))
-        return await anyio.to_thread.run_sync(self._scan, ctx, texts, limiter=self._limiter)
+        return await anyio.to_thread.run_sync(
+            self._scan, ctx, texts, limiter=self._limiter, abandon_on_cancel=True
+        )

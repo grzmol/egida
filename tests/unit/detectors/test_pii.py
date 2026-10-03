@@ -1,3 +1,5 @@
+import time
+
 import pytest
 from pydantic import ValidationError
 
@@ -93,3 +95,18 @@ async def test_detector_finds_nothing_in_clean_output() -> None:
     )
     ctx = ScanContext(interaction, Side.OUTPUT, "pii", PiiParams())
     assert await PiiDetector().scan(ctx) == []
+
+
+@pytest.mark.parametrize("unit", ["a.", "a-", "a+", "a@b.co ", "601 234 567 "])
+def test_adversarial_input_scans_in_linear_time(unit: str) -> None:
+    text = unit * (100_000 // len(unit))
+    started = time.perf_counter()
+    find_pii(text)
+    assert time.perf_counter() - started < 0.5
+
+
+def test_params_reject_empty_match_and_entity_clash() -> None:
+    with pytest.raises(ValidationError):
+        PiiParams(extra_patterns={"badge": r"\d*"})
+    with pytest.raises(ValidationError):
+        PiiParams(extra_patterns={"email": r"x@y"})

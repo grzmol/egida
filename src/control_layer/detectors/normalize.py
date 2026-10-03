@@ -29,7 +29,7 @@ _FORMAT_CHARS = re.compile(
     "[\u00ad\u0600-\u0605\u061c\u06dd\u070f\u0890\u0891\u08e2\u180e\u200b-\u200f"
     "\u202a-\u202e\u2060-\u2064\u2066-\u206f\ufeff\ufff9-\ufffb\U000110bd\U000110cd"
     "\U00013430-\U0001343f\U0001bca0-\U0001bca3\U0001d173-\U0001d17a\U000e0001"
-    "\U000e0020-\U000e007f]"
+    "\U000e0020-\U000e007f\u180b-\u180d\ufe00-\ufe0f\u3164\u115f\u1160\uffa0\u2800\U000e0100-\U000e01ef]"
 )
 _COMBINING = re.compile("[\u0300-\u036f\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f]")
 _B64_TOKEN = re.compile(r"[A-Za-z0-9+/_-]+={0,2}")
@@ -52,17 +52,22 @@ def normalize(text: str) -> str:
     return _WHITESPACE.sub(lambda m: "\n" if "\n" in m.group() else " ", text).strip()
 
 
-def decoded_segments(text: str, min_len: int = 16, max_segments: int = 5) -> list[str]:
+def decoded_segments(text: str, min_len: int = 16, max_segments: int = 50) -> list[str]:
     """Printable UTF-8 strings hidden in base64/base64url tokens of `min_len`+ characters.
 
     Binary payloads (images, archives) fail UTF-8 or the printable ratio and are skipped.
-    At most `max_segments` results, so a flood of tokens cannot multiply the scan work.
+    At most `max_segments` candidate tokens are examined, so a flood of tokens cannot
+    multiply the scan work; padding with benign tokens cannot push an attack out of the cap.
     """
     decoded: list[str] = []
+    examined = 0
     for m in _B64_TOKEN.finditer(text):
         token = m.group()
         if len(token) < min_len:
             continue
+        examined += 1
+        if examined > max_segments:
+            break
         padded = token.rstrip("=") + "=" * (-len(token.rstrip("=")) % 4)
         try:
             raw = base64.b64decode(padded.replace("-", "+").replace("_", "/"), validate=True)
@@ -72,8 +77,6 @@ def decoded_segments(text: str, min_len: int = 16, max_segments: int = 5) -> lis
         printable = sum(c.isprintable() or c.isspace() for c in candidate)
         if candidate and printable / len(candidate) >= _MIN_PRINTABLE:
             decoded.append(candidate)
-            if len(decoded) == max_segments:
-                break
     return decoded
 
 

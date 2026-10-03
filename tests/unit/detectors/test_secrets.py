@@ -1,3 +1,5 @@
+import time
+
 import pytest
 from pydantic import ValidationError
 
@@ -89,3 +91,11 @@ async def test_entropy_only_scores_below_block_threshold() -> None:
     ctx = ScanContext(interaction, Side.INPUT, "secrets", SecretsParams())
     [finding] = await SecretsDetector().scan(ctx)
     assert finding.score == 0.6
+
+
+@pytest.mark.parametrize("unit", ["ey-", "sk-", "AKIAIOSFODNN7EXAMPLE x "])
+def test_adversarial_input_scans_in_linear_time(unit: str) -> None:
+    text = unit * (100_000 // len(unit))
+    started = time.perf_counter()
+    find_secrets(text)
+    assert time.perf_counter() - started < 0.5

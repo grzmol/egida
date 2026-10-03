@@ -28,7 +28,11 @@ RULES: tuple[tuple[str, float, re.Pattern[str]], ...] = tuple(
             r"-----BEGIN[ A-Z0-9_-]{0,100}PRIVATE KEY(?: BLOCK)?-----[\s\S]*?"
             r"(?:-----END[ A-Z0-9_-]{0,100}PRIVATE KEY(?: BLOCK)?-----|\Z)",
         ),
-        ("jwt", 0.9, r"\bey[A-Za-z0-9_-]{10,}\.ey[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),
+        (
+            "jwt",
+            0.9,
+            r"(?<![A-Za-z0-9_-])ey[A-Za-z0-9_-]{10,}\.ey[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}",
+        ),
         ("slack_token", 1.0, r"\bxox[abposr]-[A-Za-z0-9-]{10,}"),
         ("conn_string", 0.9, r"\b[a-z][a-z0-9+.-]{1,20}://[^\s:/@]+:[^\s/@]+@\S+"),
         ("openai_key", 1.0, r"\bsk-(?:proj-|ant-)?[A-Za-z0-9_-]{20,}"),
@@ -61,15 +65,17 @@ def find_secrets(
         for m in pattern.finditer(text)
     ]
     if "high_entropy" in rules:
+        taken = bytearray(len(text))
+        for _, _, start, end in hits:
+            taken[start:end] = b"\x01" * (end - start)
         for m in _TOKEN.finditer(text):
-            token = m.group()
-            covered = any(m.start() < end and start < m.end() for _, _, start, end in hits)
+            start, end = m.span()
             if (
-                len(token) >= entropy_min_len
-                and not covered
-                and shannon_entropy(token) > entropy_threshold
+                end - start >= entropy_min_len
+                and not any(taken[start:end])
+                and shannon_entropy(m.group()) > entropy_threshold
             ):
-                hits.append(("high_entropy", ENTROPY_SCORE, m.start(), m.end()))
+                hits.append(("high_entropy", ENTROPY_SCORE, start, end))
     return sorted(hits, key=lambda h: h[2])
 
 
@@ -106,4 +112,6 @@ class SecretsDetector:
         if not isinstance(ctx.params, SecretsParams):
             raise TypeError(f"expected SecretsParams, got {type(ctx.params).__name__}")
         texts = list(iter_texts(ctx.interaction, ctx.side))
-        return await anyio.to_thread.run_sync(_scan, ctx.control_id, texts, ctx.params)
+        return await anyio.to_thread.run_sync(
+            _scan, ctx.control_id, texts, ctx.params, abandon_on_cancel=True
+        )

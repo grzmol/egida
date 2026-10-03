@@ -80,3 +80,14 @@ def test_every_format_character_is_removed() -> None:
         chr(c) for c in range(sys.maxunicode + 1) if unicodedata.category(chr(c)) == "Cf"
     )
     assert normalize(f"a{format_chars}b") == "ab"
+
+
+def test_benign_base64_padding_does_not_hide_the_attack() -> None:
+    padding = " ".join(
+        base64.b64encode(f"hello world number {i}".encode()).decode() for i in range(5)
+    )
+    assert ATTACK in decoded_segments(f"{padding} {ATTACK_B64}")
+
+
+def test_variation_selectors_and_fillers_are_removed() -> None:
+    assert normalize("ig️noㅤre") == "ignore"
