@@ -4,7 +4,7 @@ Repozytorium zespołu na hackathon HackYeah 2026 (Kraków, 3–4 października 2
 
 ## Quick start (EN)
 
-**AI Control Layer** — an OpenAI-compatible proxy that inspects, redacts or blocks agent ↔ model traffic according to one live-editable policy, enforces per-agent budgets, and writes a hash-chained audit log. Runs fully locally. Architecture: [`docs/architecture.md`](docs/architecture.md).
+**AI Control Layer** — an OpenAI-compatible proxy that inspects, redacts or blocks agent ↔ model traffic according to one live-editable policy, enforces per-agent budgets, and writes a hash-chained audit log. Runs fully locally. Architecture: [`docs/architecture.md`](docs/architecture.md). Full documentation (decisions, architecture, controls, tests; PL): [`site/index.html`](site/index.html), served by `make docs` on http://127.0.0.1:8000 and published to GitHub Pages by `.github/workflows/pages.yml`.
 
 ```bash
 # requirements: macOS/Linux, uv; for real model answers: Ollama with `ollama pull llama3.2:3b`
@@ -170,3 +170,4 @@ Plan ogólny z etapami F0–F7, zasadami ograniczającymi dług techniczny, arch
 | `src/control_layer/` | Kod: `core/` (bez frameworków), `adapters/`, `detectors/`, `dashboard/`, `app.py` |
 | `config/` | Polityki: `policy.yaml` (domyślna), `policy.strict.yaml`, `policy.lenient.yaml` |
 | `Dockerfile`, `compose.yaml` | Szablon z `docker init` — zastępuje go Maciej (D2) |
+| `site/` | Pełna dokumentacja jako statyczna strona HTML (lokalnie `make docs`, publikacja: GitHub Pages) |
