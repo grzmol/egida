@@ -1,0 +1,38 @@
+name: Discord notify
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ping Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          COMMITS: ${{ toJSON(github.event.commits) }}
+          PUSHER: ${{ github.event.pusher.name }}
+          COMPARE: ${{ github.event.compare }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Webhooks only parse user mentions by default; allowed_mentions enables @everyone.
+          jq -n --argjson c "$COMMITS" --arg pusher "$PUSHER" \
+                --arg compare "$COMPARE" --arg repo "$REPO" '{
+            content: "@everyone 🐸 Fresh code on `main` — run `git pull`!",
+            allowed_mentions: { parse: ["everyone"] },
+            embeds: [{
+              title: "🚀 \($c | length) new commit(s) in \($repo)",
+              url: $compare,
+              color: 5763719,
+              description: (
+                if ($c | length) == 0 then "Force push / branch reset."
+                else [ $c[] | "[`\(.id[0:7])`](\(.url)) \(.message | split("\n")[0]) — \(.author.name)" ]
+                     | join("\n") | .[0:4000] end),
+              footer: { text: "Pushed by \($pusher) · git pull origin main" },
+              timestamp: (now | todate)
+            }]
+          }' | curl -fsS -H "Content-Type: application/json" -d @- "$DISCORD_WEBHOOK"
