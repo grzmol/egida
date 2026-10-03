@@ -1,0 +1,33 @@
+# C17 size and parameter limits. Schema: tests/cases/README.md
+- id: lim-size-01
+  control: limit
+  polarity: negative
+  fill: 200000
+  request:
+    messages: [{role: user, content: "placeholder"}]
+  expect: {decision: block, control_id: limit}
+
+- id: lim-maxtok-01
+  control: limit
+  polarity: negative
+  tags: [judge-likely]
+  request:
+    max_tokens: 1000000
+    messages: [{role: user, content: "Write a long story (lim-maxtok-01)."}]
+  expect: {decision: allow, upstream_max_tokens: 1024}
+
+- id: lim-ok-01
+  control: limit
+  polarity: positive
+  fill: 20000
+  request:
+    messages: [{role: user, content: "placeholder"}]
+  expect: {decision: allow}
+
+- id: input-02
+  control: limit
+  polarity: negative
+  request:
+    n: 2
+    messages: [{role: user, content: "Hello (input-02)"}]
+  expect: {http_status: 400}

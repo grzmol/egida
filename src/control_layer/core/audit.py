@@ -49,6 +49,7 @@ class AuditEvent:
     feed_version: str | None = None
     decision: Action | None = None
     blocked_by: str | None = None
+    control_id: str | None = None  # the failing control in control_error events
     findings: tuple[FindingSummary, ...] = ()
     usage: Usage | None = None
     cost: float | None = None
@@ -57,10 +58,10 @@ class AuditEvent:
     detail: str | None = None
 
     def to_dict(self) -> dict[str, object]:
-        """JSON-serializable dict with `schema` = audit.v1 (enums as their string values)."""
+        """Dict of JSON-native types (lists, not tuples) with `schema` = audit.v1.
+
+        Consumers (metrics, dashboard) treat it exactly like a line parsed from the JSONL log.
+        """
         data = dataclasses.asdict(self)
-        data["latency_ms"] = dict(self.latency_ms)
-        data["findings"] = [dict(f) for f in data["findings"]]
-        for item in data["findings"]:
-            item["tags"] = list(item["tags"])
+        data["findings"] = [{**f, "tags": list(f["tags"])} for f in data["findings"]]
         return {"schema": AUDIT_SCHEMA, **data}

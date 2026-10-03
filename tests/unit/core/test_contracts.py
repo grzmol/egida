@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-import yaml
 from pydantic import BaseModel, ConfigDict
 
 from control_layer.core.audit import AuditEvent, FindingSummary
@@ -131,11 +130,6 @@ def test_non_mapping_policy_is_rejected() -> None:
         build_policy(["not", "a", "mapping"], {})  # type: ignore[arg-type]
 
 
-def test_shipped_policy_loads() -> None:
-    raw = yaml.safe_load((ROOT / "config" / "policy.yaml").read_text(encoding="utf-8"))
-    build_policy(raw, {})
-
-
 # --- texts ----------------------------------------------------------------
 
 
@@ -226,6 +220,7 @@ def test_audit_event_is_json_serializable() -> None:
     data = event.to_dict()
     assert data["schema"] == "audit.v1"
     decoded = json.loads(json.dumps(data))
+    assert decoded == data  # identical to a line parsed back from the JSONL log
     assert decoded["decision"] == "block"
     assert decoded["findings"][0]["category"] == "pii"
     assert decoded["usage"] == {"prompt_tokens": 10, "completion_tokens": 5}

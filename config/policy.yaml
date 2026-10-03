@@ -39,4 +39,26 @@ budgets:
     identical_window_s: 10
 
 # Controls run in this order (cheap first). A control missing from this list is disabled.
-controls: []
+controls:
+  - id: pii                    # C04: e-mail, phone, PESEL, NIP, REGON, IBAN, card (checksums)
+    kind: pii
+    sides: [input, output]
+    action: redact
+    threshold: 0.5
+  - id: secrets                # C05: cloud/API keys, private keys, JWT, connection strings
+    kind: secrets
+    sides: [input, output]
+    action: block
+    threshold: 0.8
+  - id: injection_heuristics   # C06: EN/PL phrase rules after normalization (homoglyphs, base64)
+    kind: injection_heuristics
+    sides: [input]
+    action: block
+    threshold: 0.5
+  - id: prompt_guard           # C07: Llama Prompt Guard 2 86M (ONNX). Needs `make models`.
+    kind: prompt_guard
+    enabled: false             # decision at Sync 3 (18:00)
+    sides: [input]
+    action: block
+    threshold: 0.95
+    timeout_ms: 800
