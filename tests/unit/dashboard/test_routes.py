@@ -101,3 +101,47 @@ def test_export_errors(client: TestClient, paths: tuple[Path, Path]) -> None:
 def test_no_endpoint_returns_message_content(client: TestClient) -> None:
     for url in ("/api/stats", "/api/events", "/api/audit/export?format=csv"):
         assert "44051401359" not in client.get(url).text
+
+
+def evidence_client(tmp_path: Path) -> tuple[TestClient, Path, Path]:
+    redteam, evaluation = tmp_path / "summary.json", tmp_path / "eval.json"
+    app = FastAPI()
+    app.include_router(
+        build_router(
+            MetricsMemory(), tmp_path / "audit.jsonl", tmp_path / "selftest.json",
+            redteam_path=redteam, eval_path=evaluation,
+        )
+    )  # fmt: skip
+    return TestClient(app), redteam, evaluation
+
+
+def test_evidence_is_null_without_files(tmp_path: Path) -> None:
+    client, _, _ = evidence_client(tmp_path)
+    stats = client.get("/api/stats").json()
+    assert stats["redteam"] is None
+    assert stats["eval"] is None
+
+
+def test_evidence_is_served_with_mtime(tmp_path: Path) -> None:
+    client, redteam, evaluation = evidence_client(tmp_path)
+    redteam.write_text(json.dumps({"schema": "redteam.v1", "totals": {"direct_asr": 0.4}}))
+    evaluation.write_text(json.dumps({"schema": "eval.v1", "files": {}}))
+    stats = client.get("/api/stats").json()
+    assert stats["redteam"]["totals"]["direct_asr"] == 0.4
+    assert "mtime" in stats["eval"]
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "{broken",
+        json.dumps({"schema": "other.v9"}),
+        json.dumps({"schema": "eval.v1", "x": "a" * 1_100_000}),
+    ],
+)
+def test_bad_evidence_is_an_error_not_a_500(tmp_path: Path, content: str) -> None:
+    client, _, evaluation = evidence_client(tmp_path)
+    evaluation.write_text(content)
+    response = client.get("/api/stats")
+    assert response.status_code == 200
+    assert "error" in response.json()["eval"]
