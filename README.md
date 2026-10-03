@@ -1,10 +1,10 @@
-# froggers — HackYeah 2026
+# Egida — HackYeah 2026
 
 Repozytorium zespołu na hackathon HackYeah 2026 (Kraków, 3–4 października 2026).
 
 ## Quick start (EN)
 
-**AI Control Layer** — an OpenAI-compatible proxy that inspects, redacts or blocks agent ↔ model traffic according to one live-editable policy, enforces per-agent budgets, and writes a hash-chained audit log. Runs fully locally. Architecture: [`docs/architecture.md`](docs/architecture.md). Full documentation (decisions, architecture, controls, tests; PL): [`site/index.html`](site/index.html), served by `make docs` on http://127.0.0.1:8000 (`.github/workflows/pages.yml` can publish it to GitHub Pages; manual run only).
+**Egida** (task: AI Control Layer) — an OpenAI-compatible proxy that inspects, redacts or blocks agent ↔ model traffic according to one live-editable policy, enforces per-agent budgets, and writes a hash-chained audit log. Runs fully locally. Full documentation (decisions, architecture, controls, tests; PL): [`site/index.html`](site/index.html), served by `make docs` on http://127.0.0.1:8000 (`.github/workflows/pages.yml` can publish it to GitHub Pages; manual run only).
 
 ```bash
 # requirements: macOS/Linux, uv, Ollama (the upstream model; without it allowed requests get 502)
@@ -14,7 +14,7 @@ make run                      # proxy on http://127.0.0.1:8080 (stays in the for
 # optional, only for the disabled-by-default prompt_guard control: make models
 ```
 
-Docker instead (proxy plus Ollama, model pulled on first start; about 4.6 GB to download): `docker compose up --build`, details in [`docs/deploy.md`](docs/deploy.md).
+Docker instead (proxy plus Ollama, model pulled on first start; about 4.6 GB to download): `docker compose up --build`.
 
 **Connect an agent — change only `base_url`** (save as `agent.py`, run `uv run --with openai python agent.py`):
 
@@ -42,7 +42,7 @@ curl -s http://127.0.0.1:8080/v1/chat/completions -H 'Authorization: Bearer sk-d
 
 **Tests:** `make check` (lint, types, architecture boundaries, unit + case tests offline) · `make selftest` (the same YAML cases against the running instance as `selftest-agent`, JUnit in `var/selftest.xml`; another instance: `make selftest TARGET=http://host:port`; needs the upstream from `upstreams.*.base_url` in the policy — Ollama by default, any OpenAI-compatible API works — otherwise allow/redact cases get 502). When rehearsing, vary the prompt: the same prompt repeated in a short window trips loop detection (`blocked_by: budget.loop`).
 
-**Built with Llama.** Models: Llama Prompt Guard 2 86M (Llama 4 Community License), `llama-guard3:1b` and `llama3.2:3b` (Llama 3.2 Community License); see [Built with Llama](#built-with-llama). Licences: [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md).
+**Built with Llama.** Models: Llama Prompt Guard 2 86M (Llama 4 Community License), `llama-guard3:1b` and `llama3.2:3b` (Llama 3.2 Community License); see [Built with Llama](#built-with-llama).
 
 ## Wybrane zadanie: AI Control Layer
 
@@ -81,7 +81,7 @@ Jury bez przygotowania: uruchamia nasz zestaw testów, wpisuje własne prompty d
 
 ## Dlaczego my
 
-> Dla zespołów platformowych, które wpuszczają agentów AI do wrażliwych systemów, AI Control Layer to proxy działające w pełni lokalnie. Jeden walidowany plik polityki steruje decyzją ALLOW / REDACT / BLOCK i budżetami. W odróżnieniu od LiteLLM czy agentgateway warstwa semantyczna działa lokalnie, a bezpieczeństwo nie zależy od płatnej licencji ani chmury ([research 01 §4](docs/research/01-gatewaye-i-proxy.md)).
+> Dla zespołów platformowych, które wpuszczają agentów AI do wrażliwych systemów, Egida to proxy działające w pełni lokalnie. Jeden walidowany plik polityki steruje decyzją ALLOW / REDACT / BLOCK i budżetami. W odróżnieniu od LiteLLM czy agentgateway warstwa semantyczna działa lokalnie, a bezpieczeństwo nie zależy od płatnej licencji ani chmury ([research 01 §4](docs/research/01-gatewaye-i-proxy.md)).
 
 - **Lokalnie i open source.** Proxy, detektory i opcjonalny klasyfikator injection (Llama Prompt Guard 2 w ONNX, domyślnie wyłączony, włączony w `policy.strict.yaml`) działają na laptopie, bez wywołań do chmury. Agent podłącza się przez zmianę `base_url` w kliencie OpenAI.
 - **Jedna polityka, zmiana na żywo.** `config/policy.yaml` jest walidowany przy każdej zmianie. Błędna wersja jest odrzucana z podanym powodem, a ruch chroni ostatnia poprawna. Wyłączenie kontroli dashboard oznacza jako „posture weakened”.
@@ -105,15 +105,15 @@ Built with Llama: Llama Prompt Guard 2 jest udostępniany na licencji Llama 4 Co
 
 ## Red team (garak) i FP/FN
 
-Pomiar z 3.10, na żywym proxy (osobna instancja na porcie 8081, osobny agent `redteam-agent` z dużym budżetem, osobny audyt). Model: `llama3.2:3b` w Ollamie. Liczby pochodzą z plików w [`docs/evidence/`](docs/evidence/); tabele poniżej są z nich wygenerowane.
+Pomiar z 3.10, na żywym proxy (osobna instancja na porcie 8081, osobny agent `redteam-agent` z dużym budżetem, osobny audyt). Model: `llama3.2:3b` w Ollamie. Liczby pochodzą z plików JSON z `scripts/redteam.py` i `scripts/eval_fpfn.py`; tabele poniżej są z nich wygenerowane.
 
 | Plik | Polityka | Commit | `valid` |
 |---|---|---|---|
-| [`redteam-summary.json`](docs/evidence/redteam-summary.json) | aktualna `config/policy.yaml` (`cb04896c…`, Prompt Guard wyłączony) | `aa9c9d4` | `true` |
-| [`eval.json`](docs/evidence/eval.json) | jak wyżej | `aa9c9d4` | `true` |
-| [`redteam-summary.run1.json`](docs/evidence/redteam-summary.run1.json) | wcześniejsza polityka (`a2fba8ab…`, bez `signatures` i `canary`) | `ead7f47` | `true` |
-| [`redteam-summary.prompt-guard.json`](docs/evidence/redteam-summary.prompt-guard.json) | wcześniejsza polityka + `prompt_guard` włączony (`enabled_overrides`) | `25f4554` | **`false`** (niżej) |
-| [`eval.prompt-guard.json`](docs/evidence/eval.prompt-guard.json) | jak wyżej | `25f4554` | `true` |
+| `redteam-summary.json` | aktualna `config/policy.yaml` (`cb04896c…`, Prompt Guard wyłączony) | `aa9c9d4` | `true` |
+| `eval.json` | jak wyżej | `aa9c9d4` | `true` |
+| `redteam-summary.run1.json` | wcześniejsza polityka (`a2fba8ab…`, bez `signatures` i `canary`) | `ead7f47` | `true` |
+| `redteam-summary.prompt-guard.json` | wcześniejsza polityka + `prompt_guard` włączony (`enabled_overrides`) | `25f4554` | **`false`** (niżej) |
+| `eval.prompt-guard.json` | jak wyżej | `25f4554` | `true` |
 
 Przebieg garaka „bez proxy” jest jeden (z `ead7f47`, ten sam model, ziarno i parametry); wszystkie przebiegi „przez proxy” porównują się z nim. Przebieg „przez proxy” w `redteam-summary.json` jest z `76ff217`. Później w polityce zmienił się tylko komentarz: polityka pomiarowa ma ten sam `eval_sha256` (`7267d805…`), więc podsumowanie przeliczyliśmy z nowym hashem źródła, bez nowego przebiegu. FP/FN na wszystkich politykach bazowych dało identyczne liczby.
 
@@ -195,7 +195,7 @@ Jak to czytać:
 
 ## Pokrycie kontroli (OWASP / ASI)
 
-Tylko kontrole **włączone** w [`config/policy.yaml`](config/policy.yaml) i etapy pipeline'u, które działają zawsze. Numery katalogu, OWASP LLM 2025 i ASI 2026 według [`docs/owasp-mapping.md`](docs/owasp-mapping.md); tagi w kolumnie OWASP/ASI to te, które kontrola zapisuje w `Finding.tags` (odpowiedź i audyt), chyba że zaznaczono inaczej. Przypadki: pliki [`tests/cases/*.yaml`](tests/cases/README.md), pole `control` i `polarity` (negatywny = ma zostać zablokowany lub zredagowany, pozytywny = ma przejść).
+Tylko kontrole **włączone** w [`config/policy.yaml`](config/policy.yaml) i etapy pipeline'u, które działają zawsze. Numery katalogu, OWASP LLM 2025 i ASI 2026 według katalogu w `docs/research/04-zagrozenia-i-katalog-kontroli.md`; tagi w kolumnie OWASP/ASI to te, które kontrola zapisuje w `Finding.tags` (odpowiedź i audyt), chyba że zaznaczono inaczej. Przypadki: pliki [`tests/cases/*.yaml`](tests/cases/README.md), pole `control` i `polarity` (negatywny = ma zostać zablokowany lub zredagowany, pozytywny = ma przejść).
 
 | `id` w polityce | Katalog | OWASP LLM 2025 | ASI 2026 | Przypadki neg. / poz. |
 |---|---|---|---|---|
@@ -212,7 +212,7 @@ Tylko kontrole **włączone** w [`config/policy.yaml`](config/policy.yaml) i eta
 | `limit` (etap `limits`) | C17 | LLM10¹ | — | 3 / 1 |
 | `budget` (C15 tokeny i koszt, C16 pętle i liczba żądań) | C15, C16 | LLM10¹ | ASI08¹ (C16) | 4 / 2 |
 
-¹ Etap pipeline'u bez tagów w `Finding.tags`; mapowanie tylko z [`docs/owasp-mapping.md`](docs/owasp-mapping.md).
+¹ Etap pipeline'u bez tagów w `Finding.tags`.
 Do tego 5 / 2 przypadki `http` w `tests/cases/access.yaml` (nieznane ścieżki → 404, błędne wejście → 400).
 
 **Poza zakresem / wyłączone** (nie liczą się do pokrycia powyżej):
@@ -220,7 +220,7 @@ Do tego 5 / 2 przypadki `http` w `tests/cases/access.yaml` (nieznane ścieżki �
 - `prompt_guard` (C07, Llama Prompt Guard 2 86M): zaimplementowany, `enabled: false` w `config/policy.yaml`, włączony w `config/policy.strict.yaml`; wymaga `make models`. Przypadki 2 / 1 są pomijane, gdy kontrola wyłączona.
 - `harmful_content` (guard LLM `llama-guard3:1b`, [ADR-0006](docs/adr/0006-guard-llm-tresc-szkodliwa.md)): zaimplementowany, nie ma go w `config/policy.yaml`. Przypadki `harmful` 16 / 14 są pomijane.
 - `egress.tool` (C14 dla argumentów narzędzi): zaimplementowany, `enabled: false`. Przypadki 1 / 1 pomijane.
-- Z katalogu niezrobione: C08 (sędzia goal drift), C13 (skan szablonów GGUF), C23 (human-in-the-loop), C24 (podpis komunikacji agent↔agent) — backlog; C12 (weryfikacja artefaktów modeli) — po drafcie. Statusy: [`docs/owasp-mapping.md`](docs/owasp-mapping.md) §1.
+- Z katalogu niezrobione: C08 (sędzia goal drift), C13 (skan szablonów GGUF), C23 (human-in-the-loop), C24 (podpis komunikacji agent↔agent) — backlog; C12 (weryfikacja artefaktów modeli) — po drafcie.
 
 ## Raport testów
 
@@ -235,7 +235,7 @@ Stan na 3.10.2026, `main @ d1725fe` (liczby odświeżamy po freezie na commicie 
 
 **Dlaczego „skipped”** (logika w [`tests/test_cases.py`](tests/test_cases.py)): przypadek kontroli wyłączonej w `config/policy.yaml` jest pomijany (offline: 30 `harmful` + 3 `prompt_guard`); testy jednostkowe Prompt Guard i guard LLM wymagają modeli (offline: 39 „run `make models`”, 4 „needs Ollama with llama-guard3:1b”). Na żywo dodatkowo pomijane są przypadki z tagiem `offline-only` (sprawdzają rzeczy niewidoczne z zewnątrz, np. treść wysłaną do upstreamu). Przypadki `known-gap` to strict xfail: znane luki detektorów, które zrobią się czerwone, gdy luka zostanie naprawiona.
 
-**Znane ograniczenia** (ryzyka przyjęte w [`docs/audyt-dlugu/grzegorz.md`](docs/audyt-dlugu/grzegorz.md) i [`docs/audyt-dlugu/sebastian.md`](docs/audyt-dlugu/sebastian.md)):
+**Znane ograniczenia**:
 
 - Ucięta ostatnia linia audytu blokuje start (łańcuch nie jest kontynuowany na uszkodzonym wpisie); `make verify-audit` wskazuje linię.
 - Endpointy operatora (`/api/*`, `/dashboard`, `/metrics`) bez uwierzytelnienia, na porcie proxy; port wystawiony tylko na `127.0.0.1`.
@@ -248,14 +248,14 @@ Klucze API, klucze PEM, PESEL-e, numery kart i inne „sekrety” w `tests/cases
 
 ## Ujawnienie AI i materiałów
 
-**Narzędzia AI** (szczegóły, godziny i co weryfikowaliśmy: [`docs/ai-usage/`](docs/ai-usage/)):
+**Narzędzia AI**:
 
-- Grzegorz: Claude Code (omp), modele Claude — kod platformy, testy, dokumentacja ([`grzegorz.md`](docs/ai-usage/grzegorz.md)).
-- Sebastian: Claude Code — detektory, przypadki testowe, dashboard, red team ([`sebastian.md`](docs/ai-usage/sebastian.md)).
-- Maciej: Claude Code (Claude Opus 5.5 / Sonnet) — Docker/Compose, CI, bench, QA, nagrania ([`maciej.md`](docs/ai-usage/maciej.md)).
-- Kamil: Gemini 3.8 Flash (High) przez Gemini CLI — przypadki `kamil-*.yaml`, dane do ewaluacji, mapowanie OWASP, slajdy ([`kamil.md`](docs/ai-usage/kamil.md)).
+- Grzegorz: Claude Code (omp), modele Claude — kod platformy, testy, dokumentacja.
+- Sebastian: Claude Code — detektory, przypadki testowe, dashboard, red team.
+- Maciej: Claude Code (Claude Opus 5.5 / Sonnet) — Docker/Compose, CI, bench, QA, nagrania.
+- Kamil: Gemini 3.8 Flash (High) przez Gemini CLI — przypadki `kamil-*.yaml`, dane do ewaluacji, mapowanie OWASP, slajdy.
 
-**Modele w działaniu** ([`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md)):
+**Modele w działaniu:**
 
 | Model | Licencja | Użycie |
 |---|---|---|
@@ -263,7 +263,7 @@ Klucze API, klucze PEM, PESEL-e, numery kart i inne „sekrety” w `tests/cases
 | `llama-guard3:1b` (Ollama) | Llama 3.2 Community License | detektor `harmful_content`, poza domyślną polityką |
 | `llama3.2:3b` (Ollama) | Llama 3.2 Community License | model czatu w demo (upstream, nie jest częścią kontroli) |
 
-Biblioteki i narzędzia z wersjami i licencjami: [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md). garak (NVIDIA, Apache-2.0) uruchamiany przez `uvx`, poza `uv.lock`.
+Wersje bibliotek są przypięte w `uv.lock`. garak (NVIDIA, Apache-2.0) uruchamiany przez `uvx`, poza `uv.lock`.
 
 **Zbiory do ewaluacji FP/FN** ([`docs/eval/SOURCES.md`](docs/eval/SOURCES.md); nie ma ich w repo, generuje je `scripts/prepare_eval_data.py`): deepset/prompt-injections (Apache-2.0), Lakera/gandalf_ignore_instructions (MIT), JailbreakBench/JBB-Behaviors (MIT), Paul/XSTest (CC-BY-4.0), `docs/eval/pl-manual.yaml` (własny zespołu).
 
@@ -281,20 +281,18 @@ Przed 11:00 powstały tylko: `README.md` z jedną linią (`230a815`) i szablon D
 
 **Built with Llama.** Używamy modeli Llama: Llama Prompt Guard 2 86M (Llama 4 Community License), `llama-guard3:1b` i `llama3.2:3b` (Llama 3.2 Community License). Obie licencje w § 1.b.i wymagają przy udostępnianiu produktu zawierającego materiały Llama: „(B) prominently display “Built with Llama” on a related website, user interface, blogpost, about page, or product documentation” ([Llama 4](https://www.llama.com/llama4/license/), [Llama 3.2](https://github.com/meta-llama/llama-models/blob/main/models/llama3_2/LICENSE)). Wag modeli nie rozpowszechniamy: pobiera je użytkownik (`make models`, `ollama pull`) razem z licencją.
 
-## Plan projektu
+## Decyzje architektoniczne
 
-Plan ogólny z etapami F0–F7, zasadami ograniczającymi dług techniczny, architekturą i definicją ukończenia: [`docs/PLAN.md`](docs/PLAN.md). Decyzje architektoniczne: [`docs/adr/`](docs/adr/README.md).
+Decyzje architektoniczne: [`docs/adr/`](docs/adr/README.md).
 
 ## Struktura repozytorium
 
 | Ścieżka | Zawartość |
 |---|---|
-| [`docs/PLAN.md`](docs/PLAN.md) | Plan projektu: etapy, zasady przeciw długowi technicznemu, architektura, definicja ukończenia |
 | [`docs/adr/`](docs/adr/README.md) | Rejestr decyzji architektonicznych (ADR) |
-| [`docs/architecture.md`](docs/architecture.md) | Architektura wg aktualnego kodu: przepływ żądania, komponenty, kontrole, semantyka decyzji |
 | [`docs/research/`](docs/research/README.md) | Przegląd istniejących narzędzi, zagrożeń i brainstorming (synteza w `README.md`) |
 | `src/control_layer/` | Kod: `core/` (bez frameworków), `adapters/`, `detectors/`, `dashboard/`, `app.py` |
 | `config/` | Polityki: `policy.yaml` (domyślna), `policy.strict.yaml`, `policy.lenient.yaml`, `policy.compose.yaml` (Docker) |
 | `signatures/` | Feed sygnatur znanych ataków (`feed.yaml`) i reguła do demo W2 (`demo/sig-0005.yaml`) |
-| `Dockerfile`, `compose.yaml` | Obraz proxy (non-root) i stos z Ollamą (Ollama bez portu na hoście, proxy tylko na `127.0.0.1`); opis w [`docs/deploy.md`](docs/deploy.md) |
+| `Dockerfile`, `compose.yaml` | Obraz proxy (non-root) i stos z Ollamą (Ollama bez portu na hoście, proxy tylko na `127.0.0.1`) |
 | `site/` | Pełna dokumentacja jako statyczna strona HTML (lokalnie `make docs`; GitHub Pages przez ręczny workflow) |
