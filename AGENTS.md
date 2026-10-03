@@ -20,6 +20,7 @@ Team repository for the HackYeah 2026 hackathon (Kraków, Oct 3–4, 2026). Read
 | `docs/PLAN.md` | Project plan: scope, anti-debt rules, architecture, phases, requirement→test matrix, definition of done, risks |
 | `docs/adr/` | Architecture Decision Records + index |
 | `Dockerfile`, `compose.yaml` | Container scaffold (placeholder) |
+| `docs/research/` | Landscape of existing tools, threat catalog, test design, persona brainstorms; synthesis + proposed plan changes in `docs/research/README.md` |
 
 ## Answering Questions About the Hackathon
 

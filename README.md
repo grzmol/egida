@@ -107,5 +107,6 @@ Plan ogólny z etapami F0–F7, zasadami ograniczającymi dług techniczny, arch
 | [`knowledge-base/rules/`](knowledge-base/rules/) | Dosłowne teksty oficjalnych dokumentów — źródło prawdy |
 | [`docs/PLAN.md`](docs/PLAN.md) | Plan projektu: etapy, zasady przeciw długowi technicznemu, architektura, definicja ukończenia |
 | [`docs/adr/`](docs/adr/README.md) | Rejestr decyzji architektonicznych (ADR) |
+| [`docs/research/`](docs/research/README.md) | Przegląd istniejących narzędzi, zagrożeń i brainstorming (synteza w `README.md`) |
 | [`AGENTS.md`](AGENTS.md) | Instrukcje dla agentów AI pracujących w repo |
 | `Dockerfile`, `compose.yaml` | Szablon z `docker init` (placeholder); start: `docker compose up --build` |
