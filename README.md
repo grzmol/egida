@@ -1,10 +1,10 @@
-# Egida — HackYeah 2026
+# froggers — HackYeah 2026
 
 Repozytorium zespołu na hackathon HackYeah 2026 (Kraków, 3–4 października 2026).
 
 ## Quick start (EN)
 
-**Egida** (task: AI Control Layer) — an OpenAI-compatible proxy that inspects, redacts or blocks agent ↔ model traffic according to one live-editable policy, enforces per-agent budgets, and writes a hash-chained audit log. Runs fully locally. Full documentation (decisions, architecture, controls, tests; PL): [`site/index.html`](site/index.html), served by `make docs` on http://127.0.0.1:8000 (`.github/workflows/pages.yml` can publish it to GitHub Pages; manual run only).
+**AI Control Layer** — an OpenAI-compatible proxy that inspects, redacts or blocks agent ↔ model traffic according to one live-editable policy, enforces per-agent budgets, and writes a hash-chained audit log. Runs fully locally. Architecture: [`docs/architecture.md`](docs/architecture.md). Full documentation (decisions, architecture, controls, tests; PL): [`site/index.html`](site/index.html), served by `make docs` on http://127.0.0.1:8000 (`.github/workflows/pages.yml` can publish it to GitHub Pages; manual run only).
 
 ```bash
 # requirements: macOS/Linux, uv, Ollama (the upstream model; without it allowed requests get 502)
@@ -14,7 +14,7 @@ make run                      # proxy on http://127.0.0.1:8080 (stays in the for
 # optional, only for the disabled-by-default prompt_guard control: make models
 ```
 
-Docker instead (proxy plus Ollama, model pulled on first start; about 4.6 GB to download): `docker compose up --build`.
+Docker instead (proxy plus Ollama, model pulled on first start; about 4.6 GB to download): `docker compose up --build`, details in [`docs/deploy.md`](docs/deploy.md).
 
 **Connect an agent — change only `base_url`** (save as `agent.py`, run `uv run --with openai python agent.py`):
 
@@ -32,7 +32,7 @@ curl -s http://127.0.0.1:8080/v1/chat/completions -H 'Authorization: Bearer sk-d
 # → HTTP 200, finish_reason "content_filter", header X-Control-Decision: block, field control_layer
 ```
 
-**Policy:** `config/policy.yaml` (controls, thresholds, actions, budgets, agents). Edit and save — applied within ~1 s, no restart; an invalid file is rejected (see `GET /api/policy` → `last_error`) and the last valid policy keeps running. Samples: `config/policy.strict.yaml`, `config/policy.lenient.yaml` (`CONTROL_LAYER_POLICY=config/policy.strict.yaml make run`). Demo keys (only their sha256 is stored): `sk-demo-agent`, `sk-ci-agent` (small budget), `sk-tools-agent` (tools `search_docs`, `read_file`, `http_get`), `sk-selftest-agent` (live selftest: `CONTROL_LAYER_SELFTEST_AGENT=selftest-agent make selftest`, own budget so it does not use up demo-agent's). Guard models (B6) are called on `CONTROL_LAYER_GUARD_URL` (default `http://127.0.0.1:11434`, Ollama's native API).
+**Policy:** `config/policy.yaml` (controls, thresholds, actions, budgets, agents). Edit and save — applied within ~1 s, no restart; an invalid file is rejected (see `GET /api/policy` → `last_error`) and the last valid policy keeps running. Samples: `config/policy.strict.yaml`, `config/policy.lenient.yaml` (`make models && CONTROL_LAYER_POLICY=config/policy.strict.yaml make run` — strict enables `prompt_guard` with `on_error: block`, so without `make models` it blocks every request, fail-closed by design). Demo keys (only their sha256 is stored): `sk-demo-agent`, `sk-ci-agent` (small budget), `sk-tools-agent` (tools `search_docs`, `read_file`, `http_get`), `sk-selftest-agent` (live selftest: `CONTROL_LAYER_SELFTEST_AGENT=selftest-agent make selftest`, own budget so it does not use up demo-agent's). Guard models (B6) are called on `CONTROL_LAYER_GUARD_URL` (default `http://127.0.0.1:11434`, Ollama's native API).
 
 **Known-attack signatures:** `signatures/feed.yaml` (rules with their own attack and benign examples; a rule that fails its examples is rejected). Edit and save — applied within ~1 s; `GET /api/signatures` shows the active version and `last_error`, `GET /api/signatures/cases?agent=sig-probe-agent` turns the rule examples into selftest cases (key `sk-sig-probe-agent`). Demo W2: paste `signatures/demo/sig-0005.yaml` into the feed and bump `feed_version`.
 
@@ -42,7 +42,7 @@ curl -s http://127.0.0.1:8080/v1/chat/completions -H 'Authorization: Bearer sk-d
 
 **Tests:** `make check` (lint, types, architecture boundaries, unit + case tests offline) · `make selftest` (the same YAML cases against the running instance as `selftest-agent`, JUnit in `var/selftest.xml`; another instance: `make selftest TARGET=http://host:port`; needs the upstream from `upstreams.*.base_url` in the policy — Ollama by default, any OpenAI-compatible API works — otherwise allow/redact cases get 502). When rehearsing, vary the prompt: the same prompt repeated in a short window trips loop detection (`blocked_by: budget.loop`).
 
-**Built with Llama.** Models: Llama Prompt Guard 2 86M (Llama 4 Community License), `llama-guard3:1b` and `llama3.2:3b` (Llama 3.2 Community License); see [Built with Llama](#built-with-llama).
+**Built with Llama.** Models: Llama Prompt Guard 2 86M (Llama 4 Community License), `llama-guard3:1b` and `llama3.2:3b` (Llama 3.2 Community License); see [Built with Llama](#built-with-llama). Licences: [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md).
 
 ## Wybrane zadanie: AI Control Layer
 
@@ -55,6 +55,7 @@ curl -s http://127.0.0.1:8080/v1/chat/completions -H 'Authorization: Bearer sk-d
 | Okno pracy | 3.10 11:00 → 4.10 11:00 (potwierdzone dla wszystkich zadań); **pierwszy draft do 3.10 20:00** |
 | Język | angielski lub polski |
 | Prawa autorskie | zostają przy nas |
+| Pełna specyfikacja | [`knowledge-base/tasks/partner-goldman-sachs-ai-control-layer.md`](knowledge-base/tasks/partner-goldman-sachs-ai-control-layer.md) |
 
 ### Wymagania formalne
 
@@ -81,7 +82,7 @@ Jury bez przygotowania: uruchamia nasz zestaw testów, wpisuje własne prompty d
 
 ## Dlaczego my
 
-> Dla zespołów platformowych, które wpuszczają agentów AI do wrażliwych systemów, Egida to proxy działające w pełni lokalnie. Jeden walidowany plik polityki steruje decyzją ALLOW / REDACT / BLOCK i budżetami. W odróżnieniu od LiteLLM czy agentgateway warstwa semantyczna działa lokalnie, a bezpieczeństwo nie zależy od płatnej licencji ani chmury ([research 01 §4](docs/research/01-gatewaye-i-proxy.md)).
+> Dla zespołów platformowych, które wpuszczają agentów AI do wrażliwych systemów, AI Control Layer to proxy działające w pełni lokalnie. Jeden walidowany plik polityki steruje decyzją ALLOW / REDACT / BLOCK i budżetami. W odróżnieniu od LiteLLM czy agentgateway warstwa semantyczna działa lokalnie, a bezpieczeństwo nie zależy od płatnej licencji ani chmury ([research 01 §4](docs/research/01-gatewaye-i-proxy.md)).
 
 - **Lokalnie i open source.** Proxy, detektory i opcjonalny klasyfikator injection (Llama Prompt Guard 2 w ONNX, domyślnie wyłączony, włączony w `policy.strict.yaml`) działają na laptopie, bez wywołań do chmury. Agent podłącza się przez zmianę `base_url` w kliencie OpenAI.
 - **Jedna polityka, zmiana na żywo.** `config/policy.yaml` jest walidowany przy każdej zmianie. Błędna wersja jest odrzucana z podanym powodem, a ruch chroni ostatnia poprawna. Wyłączenie kontroli dashboard oznacza jako „posture weakened”.
@@ -105,15 +106,15 @@ Built with Llama: Llama Prompt Guard 2 jest udostępniany na licencji Llama 4 Co
 
 ## Red team (garak) i FP/FN
 
-Pomiar z 3.10, na żywym proxy (osobna instancja na porcie 8081, osobny agent `redteam-agent` z dużym budżetem, osobny audyt). Model: `llama3.2:3b` w Ollamie. Liczby pochodzą z plików JSON z `scripts/redteam.py` i `scripts/eval_fpfn.py`; tabele poniżej są z nich wygenerowane.
+Pomiar z 3.10, na żywym proxy (osobna instancja na porcie 8081, osobny agent `redteam-agent` z dużym budżetem, osobny audyt). Model: `llama3.2:3b` w Ollamie. Liczby pochodzą z plików w [`docs/evidence/`](docs/evidence/); tabele poniżej są z nich wygenerowane.
 
 | Plik | Polityka | Commit | `valid` |
 |---|---|---|---|
-| `redteam-summary.json` | aktualna `config/policy.yaml` (`cb04896c…`, Prompt Guard wyłączony) | `aa9c9d4` | `true` |
-| `eval.json` | jak wyżej | `aa9c9d4` | `true` |
-| `redteam-summary.run1.json` | wcześniejsza polityka (`a2fba8ab…`, bez `signatures` i `canary`) | `ead7f47` | `true` |
-| `redteam-summary.prompt-guard.json` | wcześniejsza polityka + `prompt_guard` włączony (`enabled_overrides`) | `25f4554` | **`false`** (niżej) |
-| `eval.prompt-guard.json` | jak wyżej | `25f4554` | `true` |
+| [`redteam-summary.json`](docs/evidence/redteam-summary.json) | aktualna `config/policy.yaml` (`cb04896c…`, Prompt Guard wyłączony) | `aa9c9d4` | `true` |
+| [`eval.json`](docs/evidence/eval.json) | jak wyżej | `aa9c9d4` | `true` |
+| [`redteam-summary.run1.json`](docs/evidence/redteam-summary.run1.json) | wcześniejsza polityka (`a2fba8ab…`, bez `signatures` i `canary`) | `ead7f47` | `true` |
+| [`redteam-summary.prompt-guard.json`](docs/evidence/redteam-summary.prompt-guard.json) | wcześniejsza polityka + `prompt_guard` włączony (`enabled_overrides`) | `25f4554` | **`false`** (niżej) |
+| [`eval.prompt-guard.json`](docs/evidence/eval.prompt-guard.json) | jak wyżej | `25f4554` | `true` |
 
 Przebieg garaka „bez proxy” jest jeden (z `ead7f47`, ten sam model, ziarno i parametry); wszystkie przebiegi „przez proxy” porównują się z nim. Przebieg „przez proxy” w `redteam-summary.json` jest z `76ff217`. Później w polityce zmienił się tylko komentarz: polityka pomiarowa ma ten sam `eval_sha256` (`7267d805…`), więc podsumowanie przeliczyliśmy z nowym hashem źródła, bez nowego przebiegu. FP/FN na wszystkich politykach bazowych dało identyczne liczby.
 
@@ -195,7 +196,7 @@ Jak to czytać:
 
 ## Pokrycie kontroli (OWASP / ASI)
 
-Tylko kontrole **włączone** w [`config/policy.yaml`](config/policy.yaml) i etapy pipeline'u, które działają zawsze. Numery katalogu, OWASP LLM 2025 i ASI 2026 według katalogu w `docs/research/04-zagrozenia-i-katalog-kontroli.md`; tagi w kolumnie OWASP/ASI to te, które kontrola zapisuje w `Finding.tags` (odpowiedź i audyt), chyba że zaznaczono inaczej. Przypadki: pliki [`tests/cases/*.yaml`](tests/cases/README.md), pole `control` i `polarity` (negatywny = ma zostać zablokowany lub zredagowany, pozytywny = ma przejść).
+Tylko kontrole **włączone** w [`config/policy.yaml`](config/policy.yaml) i etapy pipeline'u, które działają zawsze. Numery katalogu, OWASP LLM 2025 i ASI 2026 według [`docs/owasp-mapping.md`](docs/owasp-mapping.md); tagi w kolumnie OWASP/ASI to te, które kontrola zapisuje w `Finding.tags` (odpowiedź i audyt), chyba że zaznaczono inaczej. Przypadki: pliki [`tests/cases/*.yaml`](tests/cases/README.md), pole `control` i `polarity` (negatywny = ma zostać zablokowany lub zredagowany, pozytywny = ma przejść).
 
 | `id` w polityce | Katalog | OWASP LLM 2025 | ASI 2026 | Przypadki neg. / poz. |
 |---|---|---|---|---|
@@ -205,37 +206,43 @@ Tylko kontrole **włączone** w [`config/policy.yaml`](config/policy.yaml) i eta
 | `tool.pin` | C09 | — | ASI02, ASI04 | testy jednostkowe (`test_rug_pull_is_blocked_and_its_reservation_released`) |
 | `pii` | C04 | LLM02 | — | 21 / 10 |
 | `secrets` | C05 | LLM02 | ASI03 | 9 / 8 |
-| `injection_heuristics` | C06 | LLM01 | ASI01 | 58 / 24 (3 z tagiem `known-gap`) |
+| `injection_heuristics` | C06 | LLM01 | ASI01 | 58 / 24 |
 | `signatures` | C10, C11, C18 | tagi reguły z feedu, np. LLM03 (SIG-0001) | np. ASI05 | 21 / 17 (przykłady `tests` reguł feedu, wchodzą do selftestu przez `GET /api/signatures/cases`) |
 | `egress` | C14 | LLM05, LLM02 | — | 5 / 3 |
 | `canary` | C22 | LLM07 | — | 1 / 3 |
 | `limit` (etap `limits`) | C17 | LLM10¹ | — | 3 / 1 |
 | `budget` (C15 tokeny i koszt, C16 pętle i liczba żądań) | C15, C16 | LLM10¹ | ASI08¹ (C16) | 4 / 2 |
 
-¹ Etap pipeline'u bez tagów w `Finding.tags`.
+¹ Etap pipeline'u bez tagów w `Finding.tags`; mapowanie tylko z [`docs/owasp-mapping.md`](docs/owasp-mapping.md).
 Do tego 5 / 2 przypadki `http` w `tests/cases/access.yaml` (nieznane ścieżki → 404, błędne wejście → 400).
 
 **Poza zakresem / wyłączone** (nie liczą się do pokrycia powyżej):
 
 - `prompt_guard` (C07, Llama Prompt Guard 2 86M): zaimplementowany, `enabled: false` w `config/policy.yaml`, włączony w `config/policy.strict.yaml`; wymaga `make models`. Przypadki 2 / 1 są pomijane, gdy kontrola wyłączona.
-- `harmful_content` (guard LLM `llama-guard3:1b`, [ADR-0006](docs/adr/0006-guard-llm-tresc-szkodliwa.md)): zaimplementowany, nie ma go w `config/policy.yaml`. Przypadki `harmful` 16 / 14 są pomijane.
-- `egress.tool` (C14 dla argumentów narzędzi): zaimplementowany, `enabled: false`. Przypadki 1 / 1 pomijane.
-- Z katalogu niezrobione: C08 (sędzia goal drift), C13 (skan szablonów GGUF), C23 (human-in-the-loop), C24 (podpis komunikacji agent↔agent) — backlog; C12 (weryfikacja artefaktów modeli) — po drafcie.
+- `harmful_content` (guard LLM `llama-guard3:1b`, [ADR-0006](docs/adr/0006-guard-llm-tresc-szkodliwa.md)): zaimplementowany, nie ma go w `config/policy.yaml`. Przypadki `harmful` 16 / 14 są pomijane (3 pozytywne z tagiem `known-gap`: `harm-fp-en-01`, `harm-out-fp-en-01`, `harm-out-fp-pl-01`).
+- `egress.tool` (C14 dla argumentów narzędzi): zaimplementowany, `enabled: false`. Przypadki 1 / 1 przechodzą offline (włączają kontrolę przez `policy_patch`); na żywo pomijane jako `offline-only`.
+- Z katalogu niezrobione: C08 (sędzia goal drift), C13 (skan szablonów GGUF), C23 (human-in-the-loop), C24 (podpis komunikacji agent↔agent) — backlog; C12 (weryfikacja artefaktów modeli) — po drafcie. Statusy: [`docs/owasp-mapping.md`](docs/owasp-mapping.md) §1.
 
 ## Raport testów
 
-Stan na 3.10.2026, `main @ d1725fe` (liczby odświeżamy po freezie na commicie `freeze-0830`/`final`).
+Stan zamrożonego kodu: tagi `draft-20` = `freeze-0830` = `26e0e15` (3.10.2026 16:31; zespół przesunął freeze wcześniej, stąd nazwa tagu). Tag `final` = ten sam kod plus wyłącznie dokumentacja. Bramki poniżej uruchomione 3.10 ok. 16:40–16:50 na świeżych klonach `26e0e15`.
 
 | Co | Polecenie | Wynik |
 |---|---|---|
-| Offline: lint, typy, granice architektury, testy jednostkowe i przypadki YAML | `make check` (testy: `uv run pytest -q`) | 930 passed, 76 skipped |
-| Na żywo: te same przypadki przeciw działającemu proxy | `CONTROL_LAYER_SELFTEST_AGENT=selftest-agent make selftest` | 179 passed, 54 skipped — próba freeze 3.10 ok. 15:20 na `9f9af42`, upstream zastąpiony atrapą HTTP (bez Ollamy) |
-| Wydajność | `make bench` (Maciej, D5, natywnie na `8849425`) | 60 żądań, 2,99 req/s, 0 błędów; blokada p50 4,4 ms vs przepuszczenie p50 2,0 s (czas modelu); narzut proxy p50 2,2 ms |
+| Offline: lint, typy, granice architektury, testy jednostkowe i przypadki YAML | `make check` (testy: `uv run pytest -q`) | 930 passed, 76 skipped, 0 failed (3 przebiegi identyczne); skipped: 39 brak modelu Prompt Guard ONNX, 33 kontrole wyłączone (30 `harmful`, 3 `prompt_guard`), 4 wymagają Ollamy z `llama-guard3:1b` |
+| Na żywo: te same przypadki przeciw działającemu proxy | `CONTROL_LAYER_SELFTEST_AGENT=selftest-agent make selftest` | 184 passed, 56 skipped, 0 failed (2 przebiegi identyczne); **upstream zastąpiony atrapą HTTP** (na tej maszynie nie ma Ollamy); skipped: 29 `offline-only` (`model_reply`/`policy_patch`), 24 `harmful` niewłączone, 3 `prompt_guard` niewłączone |
+| Integralność audytu | `make verify-audit` | OK, 360 zdarzeń (po 2 przebiegach selftestu) |
+| W1: zmiana polityki na żywo | edycja `config/policy.yaml` | redact→block w 0,96–1,01 s; próg 1.5 → `policy_rejected` z `last_error`, działa stara polityka; przywrócenie 0,64–1,05 s |
+| W2: feed sygnatur na żywo | dodanie SIG-0005, `feed_version` 1.1.0 | allow→block w 0,37–0,96 s; przypadki sig-probe 38→40; błędny regex → `feed_rejected`; obniżenie wersji do 1.0.9 odrzucone |
+| Docker Compose | `docker compose config`, build obrazu | konfiguracja poprawna; publikowany tylko proxy na `127.0.0.1:8080`, Ollama bez portu na hoście; obraz jako uid 10001, `config/` i `signatures/` tylko do odczytu; w kontenerze redact i block OK, audyt bez surowego PESEL; testy parytetu 12 passed. Pełne `docker compose up` z pobraniem modelu pokrywa QA Macieja (D6, 12/12, [`docs/deploy.md`](docs/deploy.md)) — na łączu hackathonu (~0,5 MB/s) nie powtarzaliśmy |
+| Regresja bezpieczeństwa | ręczne żądania (limity wejścia, tool schema, pickle MIME/base64, klucze, pin narzędzi, kanarek, audyt tylko do odczytu → 503, streaming) | 18/18 |
+| Dashboard i API operatora | przeglądarka 1280/1920 | bez błędów konsoli, dane < 3 s, eksport CSV/JSONL == audyt, `/api/audit/verify` ok, `/metrics` text/plain 0.0.4, zmiana polityki widoczna bez przeładowania |
+| Wydajność | `make bench` (Maciej, D5, natywnie na `8849425`) | 60 żądań, 2,99 req/s, 0 błędów; blokada p50 4,4 ms vs przepuszczenie p50 2,0 s (czas modelu); narzut proxy p50 2,2 ms ([`docs/tasks/maciej/README.md`](docs/tasks/maciej/README.md)) |
 | Red team i FP/FN | `scripts/redteam.py`, `scripts/eval_fpfn.py` | sekcja [Red team (garak) i FP/FN](#red-team-garak-i-fpfn) |
 
 **Dlaczego „skipped”** (logika w [`tests/test_cases.py`](tests/test_cases.py)): przypadek kontroli wyłączonej w `config/policy.yaml` jest pomijany (offline: 30 `harmful` + 3 `prompt_guard`); testy jednostkowe Prompt Guard i guard LLM wymagają modeli (offline: 39 „run `make models`”, 4 „needs Ollama with llama-guard3:1b”). Na żywo dodatkowo pomijane są przypadki z tagiem `offline-only` (sprawdzają rzeczy niewidoczne z zewnątrz, np. treść wysłaną do upstreamu). Przypadki `known-gap` to strict xfail: znane luki detektorów, które zrobią się czerwone, gdy luka zostanie naprawiona.
 
-**Znane ograniczenia**:
+**Znane ograniczenia** (ryzyka przyjęte w [`docs/audyt-dlugu/grzegorz.md`](docs/audyt-dlugu/grzegorz.md) i [`docs/audyt-dlugu/sebastian.md`](docs/audyt-dlugu/sebastian.md)):
 
 - Ucięta ostatnia linia audytu blokuje start (łańcuch nie jest kontynuowany na uszkodzonym wpisie); `make verify-audit` wskazuje linię.
 - Endpointy operatora (`/api/*`, `/dashboard`, `/metrics`) bez uwierzytelnienia, na porcie proxy; port wystawiony tylko na `127.0.0.1`.
@@ -243,19 +250,27 @@ Stan na 3.10.2026, `main @ d1725fe` (liczby odświeżamy po freezie na commicie 
 - Reguły feedu z `action: redact` ładują się, ale żadna kontrola ich nie redaguje (feed nie ma takich reguł).
 - Prompt Guard: tekst maksymalnej długości potrzebuje ok. 2 s przy `timeout_ms: 800`, więc część blokad to `on_error`, nie wykrycie (kontrola domyślnie wyłączona).
 - Ta sama pętla pollingu w adapterach polityki i feedu (dług, bez wpływu na działanie).
+- Sekret podzielony na dwie wiadomości użytkownika (`AKIAIOSF` + `ODNN7EXAMPLE`) przechodzi: `secrets` skanuje każdy tekst osobno.
+- PESEL ze spacjami (`440 514 013 59`) jest redagowany jako `[REDACTED:phone]` obejmujący 9 cyfr; ostatnie 2 cyfry zostają jawne.
+- Panel „Evidence” w dashboardzie na świeżym klonie pokazuje „No evidence yet”: czyta `var/redteam/summary.json` i `var/eval.json`; zacommitowane wyniki są w [`docs/evidence/`](docs/evidence/).
+- Baner „posture weakened” działa per rodzaj detektora: wyłączenie `egress.tool` nie jest oznaczane, bo rodzaj `egress` jest włączony (widać to w tabeli kontroli).
+- `config/policy.strict.yaml` bez `make models` blokuje każde żądanie (`prompt_guard` z `on_error: block`, fail-closed).
+- Gdy upstream nie działa, żądanie z PESEL (redact) dostaje 502, bo redakcja przekazuje żądanie do modelu (fail-closed, bez wycieku); ataki nadal są blokowane.
+- Streaming wyjścia jest buforowany: SSE wychodzi dopiero po kontrolach wyjścia (celowo).
+- `harmful_content` nie ma w `config/policy.yaml` (30 przypadków pomijanych offline i na żywo); `prompt_guard` wyłączony (wymaga `make models`).
 
 Klucze API, klucze PEM, PESEL-e, numery kart i inne „sekrety” w `tests/cases/` i `signatures/feed.yaml` to atrapy testowe, nie prawdziwe dane.
 
 ## Ujawnienie AI i materiałów
 
-**Narzędzia AI**:
+**Narzędzia AI** (szczegóły, godziny i co weryfikowaliśmy: [`docs/ai-usage/`](docs/ai-usage/)):
 
-- Grzegorz: Claude Code (omp), modele Claude — kod platformy, testy, dokumentacja.
-- Sebastian: Claude Code — detektory, przypadki testowe, dashboard, red team.
-- Maciej: Claude Code (Claude Opus 5.5 / Sonnet) — Docker/Compose, CI, bench, QA, nagrania.
-- Kamil: Gemini 3.8 Flash (High) przez Gemini CLI — przypadki `kamil-*.yaml`, dane do ewaluacji, mapowanie OWASP, slajdy.
+- Grzegorz: Claude Code (omp), modele Claude — kod platformy, testy, dokumentacja ([`grzegorz.md`](docs/ai-usage/grzegorz.md)).
+- Sebastian: Claude Code — detektory, przypadki testowe, dashboard, red team ([`sebastian.md`](docs/ai-usage/sebastian.md)).
+- Maciej: Claude Code (Claude Opus 5.5 / Sonnet) — Docker/Compose, CI, bench, QA, nagrania ([`maciej.md`](docs/ai-usage/maciej.md)).
+- Kamil: Gemini 3.8 Flash (High) przez Gemini CLI — przypadki `kamil-*.yaml`, dane do ewaluacji, mapowanie OWASP, slajdy ([`kamil.md`](docs/ai-usage/kamil.md)).
 
-**Modele w działaniu:**
+**Modele w działaniu** ([`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md)):
 
 | Model | Licencja | Użycie |
 |---|---|---|
@@ -263,7 +278,7 @@ Klucze API, klucze PEM, PESEL-e, numery kart i inne „sekrety” w `tests/cases
 | `llama-guard3:1b` (Ollama) | Llama 3.2 Community License | detektor `harmful_content`, poza domyślną polityką |
 | `llama3.2:3b` (Ollama) | Llama 3.2 Community License | model czatu w demo (upstream, nie jest częścią kontroli) |
 
-Wersje bibliotek są przypięte w `uv.lock`. garak (NVIDIA, Apache-2.0) uruchamiany przez `uvx`, poza `uv.lock`.
+Biblioteki i narzędzia z wersjami i licencjami: [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md). garak (NVIDIA, Apache-2.0) uruchamiany przez `uvx`, poza `uv.lock`.
 
 **Zbiory do ewaluacji FP/FN** ([`docs/eval/SOURCES.md`](docs/eval/SOURCES.md); nie ma ich w repo, generuje je `scripts/prepare_eval_data.py`): deepset/prompt-injections (Apache-2.0), Lakera/gandalf_ignore_instructions (MIT), JailbreakBench/JBB-Behaviors (MIT), Paul/XSTest (CC-BY-4.0), `docs/eval/pl-manual.yaml` (własny zespołu).
 
@@ -281,18 +296,87 @@ Przed 11:00 powstały tylko: `README.md` z jedną linią (`230a815`) i szablon D
 
 **Built with Llama.** Używamy modeli Llama: Llama Prompt Guard 2 86M (Llama 4 Community License), `llama-guard3:1b` i `llama3.2:3b` (Llama 3.2 Community License). Obie licencje w § 1.b.i wymagają przy udostępnianiu produktu zawierającego materiały Llama: „(B) prominently display “Built with Llama” on a related website, user interface, blogpost, about page, or product documentation” ([Llama 4](https://www.llama.com/llama4/license/), [Llama 3.2](https://github.com/meta-llama/llama-models/blob/main/models/llama3_2/LICENSE)). Wag modeli nie rozpowszechniamy: pobiera je użytkownik (`make models`, `ollama pull`) razem z licencją.
 
-## Decyzje architektoniczne
+## Dlaczego to zadanie
 
-Decyzje architektoniczne: [`docs/adr/`](docs/adr/README.md).
+> Analiza wyboru zadania z 3.10 sprzed implementacji; zostawiona jako zapis decyzji.
+
+Przeanalizowaliśmy wszystkie 10 zadań pod kątem pisania projektu z pomocą AI. Kwoty, wagi i wymagania pochodzą z [bazy wiedzy](knowledge-base/README.md); oceny „+/−” to nasza ocena.
+
+| Zadanie | AI dobrze koduje w tym stacku? | Ocena sprawdzalna kodem/testami? | Nagrody | Przeszkody | Miejsce |
+|---|---|---|---|---|---|
+| **AI Control Layer** | ++ Python/Go, regexy, Ollama, pytest | ++ jury uruchamia testy, prompty i zmiany konfiguracji na żywo | 15k PLN, 3 miejsca | brak; EN/PL, prawa zostają u nas | **1** |
+| HubMI.pl | ++ zwykła aplikacja webowa z AI do dopasowań | + 40% za liczbę modułów, ale 40% to UX, WCAG i makiety | 15k PLN, 3 miejsca | przekazanie praw autorskich, oddanie kodu w 24 h, tylko po polsku, 18+, na miejscu | 2 |
+| Huawei – Imagine What's Next | −− ArkTS/ArkUI API 20, DevEco, `.hap`; modele słabo znają ten stack | + | 25k PLN, 3 miejsca | tylko po angielsku, emulator i podpisywanie aplikacji | 3 |
+| Kraków bez barier | + web i OpenStreetMap | − dwa różne zestawy kryteriów, 20% za model biznesowy | 5k PLN, 1 miejsce | przekazanie praw, wypłata do 180 dni | 4 |
+| 5 zadań otwartych (AI, Defence, ImpactHer, Smart City, Sport) | ++ | −− 30% za pomysł i 20% za wygląd, ocena subiektywna | 8k PLN, 1 miejsce każde | brak | 5 |
+| SuperTeam (Solana) | − Rust/Anchor, portfele, faucet | + demo transakcji on-chain | 3k PLN łącznie | sprzeczna waluta puli (USD czy PLN) | 6 |
+
+Najważniejsze powody:
+
+- **Konkretna specyfikacja.** Sześć formalnych wymagań da się zamienić w testy, które przechodzą albo nie — na takiej specyfikacji agenci AI pracują najlepiej.
+- **Testy są częścią oceny** (15–20%). Generowanie wielu przypadków pozytywnych i negatywnych to mocna strona AI.
+- **Wygląd nie jest oceniany** — kryterium Design ma 0%. Wystarczy prosty dashboard.
+- **Kod zostaje nasz** — bez przekazania praw autorskich (w przeciwieństwie do HubMI i Krakowa).
+- **Trzy nagrody** — większa szansa na wynik niż w zadaniach otwartych z jedną nagrodą.
+
+**Alternatywa: HubMI.pl** — jeśli wolimy zadanie społeczne z prezentacją po polsku i przekazanie praw nam nie przeszkadza. 40% punktów daje liczba zrobionych modułów, a z AI można je dorobić szybko.
+
+## Ocena ryzyka
+
+> Ocena ryzyka z 3.10 sprzed implementacji. Stan po wdrożeniu: semantykę zapewnia Prompt Guard 2 (ONNX) i guard LLM zamiast małego modelu czatu, oba domyślnie wyłączone; wyniki w [Raport testów](#raport-testów) i [Red team (garak) i FP/FN](#red-team-garak-i-fpfn).
+
+1. **Ryzyko: średnie.** Kod jest przewidywalny; ryzykiem jest odporność na prompty, których jury nie przygotowuje wcześniej, i na zmiany konfiguracji w trakcie testów.
+2. **Główne założenie.** Lokalny model przez Ollamę musi wyłapywać prompt injection wystarczająco dobrze i szybko, żeby demo nie zwalniało.
+3. **Co sprawdzić najpierw.** Godzinny test: kilka małych modeli w Ollamie na ok. 30 promptach z atakami i bez nich; mierzymy trafność i czas odpowiedzi.
+4. **Najmniejsza działająca wersja:**
+   - proxy zgodne z API OpenAI;
+   - plik YAML z politykami, przeładowywany bez restartu;
+   - deterministyczne wykrywanie PII i sekretów (blokowanie albo redakcja);
+   - budżet tokenów per agent;
+   - log audytowy w JSONL;
+   - testy w pytest uruchamiane jednym poleceniem.
+
+   Potem: kontrole semantyczne, sygnatury znanych ataków (np. niebezpieczny pickle, wykonanie kodu), dashboard i telemetria.
+5. **Na później.** Obsługa wielu protokołów naraz (agent↔agent, MCP), zewnętrzny system dostarczający sygnatury (na start lokalny plik), dopracowany frontend.
+
+## Do potwierdzenia
+
+> Otwarte punkty z 3.10 sprzed implementacji, z rozstrzygnięciem.
+
+- **Zawartość pierwszego draftu.** Planowo freeze 19:00; zespół zamroził kod wcześniej: `draft-20` = `freeze-0830` = `26e0e15` (3.10 16:31). Zgłoszenie przez HackTribe (Kamil).
+- **Wagi kryteriów.** CRITERIA i RULES różnią się dla testów i wdrażalności (15/15 vs 20/10). Przygotowujemy się na wariant z RULES — 20% za testy.
+- **Platforma zgłoszeń.** RULES: HackTribe.
+- **Stack.** Python 3.12, FastAPI, Pydantic v2, Ollama ([ADR-0002](docs/adr/README.md)) — tego używa kod.
+
+## Zasady hackathonu, o których pamiętamy
+
+- Liczy się tylko praca wykonana w oknie konkursowym; kod sprzed hackathonu wyraźnie oddzielamy i ujawniamy.
+- Musimy umieć wyjaśnić każdą część rozwiązania, także kod wygenerowany przez AI.
+- Ujawniamy istotne użycie narzędzi AI, zewnętrznych modeli, API, zbiorów danych i bibliotek; cytujemy wykorzystane repozytoria; przestrzegamy licencji.
+- Zgłoszenie: tytuł, nazwa zespołu, lista członków, opis, prezentacja PDF do 10 slajdów; opcjonalnie repozytorium, demo, zrzuty ekranu.
+- Nagroda wymaga min. 50% punktów.
+
+Pełne wspólne zasady: [`knowledge-base/README.md` §3](knowledge-base/README.md#3-common-rules).
+
+## Plan projektu
+
+Plan ogólny z etapami F0–F7, zasadami ograniczającymi dług techniczny, architekturą i definicją ukończenia: [`docs/PLAN.md`](docs/PLAN.md). Decyzje architektoniczne: [`docs/adr/`](docs/adr/README.md).
 
 ## Struktura repozytorium
 
 | Ścieżka | Zawartość |
 |---|---|
+| [`knowledge-base/README.md`](knowledge-base/README.md) | Indeks bazy wiedzy: porównanie zadań, wspólne zasady, kryteria, sprzeczności w źródłach |
+| [`knowledge-base/tasks/`](knowledge-base/tasks/) | Streszczenia 10 zadań zoptymalizowane pod AI (format HADS) |
+| [`knowledge-base/rules/`](knowledge-base/rules/) | Dosłowne teksty oficjalnych dokumentów — źródło prawdy |
+| [`docs/PLAN.md`](docs/PLAN.md) | Plan projektu: etapy, zasady przeciw długowi technicznemu, architektura, definicja ukończenia |
 | [`docs/adr/`](docs/adr/README.md) | Rejestr decyzji architektonicznych (ADR) |
+| [`docs/architecture.md`](docs/architecture.md) | Architektura wg aktualnego kodu: przepływ żądania, komponenty, kontrole, semantyka decyzji |
 | [`docs/research/`](docs/research/README.md) | Przegląd istniejących narzędzi, zagrożeń i brainstorming (synteza w `README.md`) |
+| [`docs/WORKPLAN.md`](docs/WORKPLAN.md), [`docs/tasks/`](docs/tasks/) | Plan pracy zespołu (4 osoby): właścicielstwo plików, harmonogram, specyfikacje zadań |
+| [`AGENTS.md`](AGENTS.md) | Instrukcje dla agentów AI pracujących w repo |
 | `src/control_layer/` | Kod: `core/` (bez frameworków), `adapters/`, `detectors/`, `dashboard/`, `app.py` |
 | `config/` | Polityki: `policy.yaml` (domyślna), `policy.strict.yaml`, `policy.lenient.yaml`, `policy.compose.yaml` (Docker) |
 | `signatures/` | Feed sygnatur znanych ataków (`feed.yaml`) i reguła do demo W2 (`demo/sig-0005.yaml`) |
-| `Dockerfile`, `compose.yaml` | Obraz proxy (non-root) i stos z Ollamą (Ollama bez portu na hoście, proxy tylko na `127.0.0.1`) |
+| `Dockerfile`, `compose.yaml` | Obraz proxy (non-root) i stos z Ollamą (Ollama bez portu na hoście, proxy tylko na `127.0.0.1`); opis w [`docs/deploy.md`](docs/deploy.md) |
 | `site/` | Pełna dokumentacja jako statyczna strona HTML (lokalnie `make docs`; GitHub Pages przez ręczny workflow) |
