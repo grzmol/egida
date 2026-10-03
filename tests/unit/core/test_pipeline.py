@@ -245,6 +245,8 @@ async def test_control_errors_follow_on_error(
     assert len(errors) == 1
     assert errors[0].detail is not None
     assert "guard" in errors[0].detail
+    assert errors[0].control_id == "guard"
+    assert errors[0].blocked_by == ("guard" if on_error == "block" else None)
 
 
 async def test_finding_with_foreign_control_id_is_an_error(policy_dict: dict[str, Any]) -> None:

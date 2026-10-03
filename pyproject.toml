@@ -5,8 +5,10 @@ description = "AI Control Layer: policy-driven gateway that inspects, redacts an
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "anyio>=4.15.1",
     "fastapi>=0.142.2",
     "httpx>=0.28.1",
+    "numpy>=2.5.3",
     "onnxruntime>=1.30.0",
     "pydantic>=2.13.5",
     "python-stdnum>=2.2",

@@ -109,8 +109,10 @@ name = "control-layer"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "anyio" },
     { name = "fastapi" },
     { name = "httpx" },
+    { name = "numpy" },
     { name = "onnxruntime" },
     { name = "pydantic" },
     { name = "python-stdnum" },
@@ -130,8 +132,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anyio", specifier = ">=4.15.1" },
     { name = "fastapi", specifier = ">=0.142.2" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "numpy", specifier = ">=2.5.3" },
     { name = "onnxruntime", specifier = ">=1.30.0" },
     { name = "pydantic", specifier = ">=2.13.5" },
     { name = "python-stdnum", specifier = ">=2.2" },
