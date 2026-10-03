@@ -42,7 +42,7 @@ curl -s http://127.0.0.1:8080/v1/chat/completions -H 'Authorization: Bearer sk-d
 
 **Tests:** `make check` (lint, types, architecture boundaries, unit + case tests offline) · `make selftest` (the same YAML cases against the running instance as `selftest-agent`, JUnit in `var/selftest.xml`; another instance: `make selftest TARGET=http://host:port`; needs Ollama, otherwise allow/redact cases get 502).
 
-Licences: [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md). Prompt Guard 2 detector: **Built with Llama** (Llama 4 Community License).
+**Built with Llama.** Models: Llama Prompt Guard 2 86M (Llama 4 Community License), `llama-guard3:1b` and `llama3.2:3b` (Llama 3.2 Community License); see [Built with Llama](#built-with-llama). Licences: [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md).
 
 ## Wybrane zadanie: AI Control Layer
 
@@ -193,6 +193,94 @@ Jak to czytać:
 - `pl-manual` to przypadki napisane przez zespół, nie niezależny benchmark. Przy n = 40 przedział ufności ma ±20 pp.
 - Przebiegi `eval.json` i `eval.prompt-guard.json` mają `dirty: true`: w drzewie były niezacommitowane pliki testów i dokumentacji. Kod detektorów i polityka były czyste.
 - Źródła, liczności, sposób próbkowania i licencje zbiorów: [`docs/eval/SOURCES.md`](docs/eval/SOURCES.md). Zbiorów nie ma w repo; generuje je `scripts/prepare_eval_data.py`. garak: NVIDIA, Apache-2.0, uruchamiany przez `uvx`, poza `uv.lock`.
+
+## Pokrycie kontroli (OWASP / ASI)
+
+Tylko kontrole **włączone** w [`config/policy.yaml`](config/policy.yaml) i etapy pipeline'u, które działają zawsze. Numery katalogu, OWASP LLM 2025 i ASI 2026 według [`docs/owasp-mapping.md`](docs/owasp-mapping.md); tagi w kolumnie OWASP/ASI to te, które kontrola zapisuje w `Finding.tags` (odpowiedź i audyt), chyba że zaznaczono inaczej. Przypadki: pliki [`tests/cases/*.yaml`](tests/cases/README.md), pole `control` i `polarity` (negatywny = ma zostać zablokowany lub zredagowany, pozytywny = ma przejść).
+
+| `id` w polityce | Katalog | OWASP LLM 2025 | ASI 2026 | Przypadki neg. / poz. |
+|---|---|---|---|---|
+| `auth` (etap `access`) | C01 | — | ASI03, ASI07¹ | 3 / 1 |
+| `access.model` | C02 | LLM03¹ | ASI04¹ | 2 / 1 |
+| `access.tool` | C03 | LLM06 | ASI02 | testy jednostkowe (`tests/unit/core/test_tools.py`, `test_pipeline.py`) |
+| `tool.pin` | C09 | — | ASI02, ASI04 | testy jednostkowe (`test_rug_pull_is_blocked_and_its_reservation_released`) |
+| `pii` | C04 | LLM02 | — | 21 / 10 |
+| `secrets` | C05 | LLM02 | ASI03 | 9 / 8 |
+| `injection_heuristics` | C06 | LLM01 | ASI01 | 58 / 24 (3 z tagiem `known-gap`) |
+| `signatures` | C10, C11, C18 | tagi reguły z feedu, np. LLM03 (SIG-0001) | np. ASI05 | 21 / 17 (przykłady `tests` reguł feedu, wchodzą do selftestu przez `GET /api/signatures/cases`) |
+| `egress` | C14 | LLM05, LLM02 | — | 5 / 3 |
+| `canary` | C22 | LLM07 | — | 1 / 3 |
+| `limit` (etap `limits`) | C17 | LLM10¹ | — | 3 / 1 |
+| `budget` (C15 tokeny i koszt, C16 pętle i liczba żądań) | C15, C16 | LLM10¹ | ASI08¹ (C16) | 4 / 2 |
+
+¹ Etap pipeline'u bez tagów w `Finding.tags`; mapowanie tylko z [`docs/owasp-mapping.md`](docs/owasp-mapping.md).
+Do tego 5 / 2 przypadki `http` w `tests/cases/access.yaml` (nieznane ścieżki → 404, błędne wejście → 400).
+
+**Poza zakresem / wyłączone** (nie liczą się do pokrycia powyżej):
+
+- `prompt_guard` (C07, Llama Prompt Guard 2 86M): zaimplementowany, `enabled: false` w `config/policy.yaml`, włączony w `config/policy.strict.yaml`; wymaga `make models`. Przypadki 2 / 1 są pomijane, gdy kontrola wyłączona.
+- `harmful_content` (guard LLM `llama-guard3:1b`, [ADR-0006](docs/adr/0006-guard-llm-tresc-szkodliwa.md)): zaimplementowany, nie ma go w `config/policy.yaml`. Przypadki `harmful` 16 / 14 są pomijane.
+- `egress.tool` (C14 dla argumentów narzędzi): zaimplementowany, `enabled: false`. Przypadki 1 / 1 pomijane.
+- Z katalogu niezrobione: C08 (sędzia goal drift), C13 (skan szablonów GGUF), C23 (human-in-the-loop), C24 (podpis komunikacji agent↔agent) — backlog; C12 (weryfikacja artefaktów modeli) — po drafcie. Statusy: [`docs/owasp-mapping.md`](docs/owasp-mapping.md) §1.
+
+## Raport testów
+
+Stan na 3.10.2026, `main @ 85b0a19` (liczby odświeżamy po freezie na commicie `freeze-0830`/`final`).
+
+| Co | Polecenie | Wynik |
+|---|---|---|
+| Offline: lint, typy, granice architektury, testy jednostkowe i przypadki YAML | `make check` (testy: `uv run pytest -q`) | 917 passed, 76 skipped |
+| Na żywo: te same przypadki przeciw działającemu proxy | `CONTROL_LAYER_SELFTEST_AGENT=selftest-agent make selftest` | 179 passed, 54 skipped — próba freeze 3.10 ok. 15:20 na `9f9af42`, upstream zastąpiony atrapą HTTP (bez Ollamy) |
+| Wydajność | `make bench` (Maciej, D5, natywnie na `8849425`) | 60 żądań, 2,99 req/s, 0 błędów; blokada p50 4,4 ms vs przepuszczenie p50 2,0 s (czas modelu); narzut proxy p50 2,2 ms ([`docs/tasks/maciej/README.md`](docs/tasks/maciej/README.md)) |
+| Red team i FP/FN | `scripts/redteam.py`, `scripts/eval_fpfn.py` | sekcja [Red team (garak) i FP/FN](#red-team-garak-i-fpfn) |
+
+**Dlaczego „skipped”** (logika w [`tests/test_cases.py`](tests/test_cases.py)): przypadek kontroli wyłączonej w `config/policy.yaml` jest pomijany (offline: 30 `harmful` + 3 `prompt_guard`); testy jednostkowe Prompt Guard i guard LLM wymagają modeli (offline: 39 „run `make models`”, 4 „needs Ollama with llama-guard3:1b”). Na żywo dodatkowo pomijane są przypadki z tagiem `offline-only` (sprawdzają rzeczy niewidoczne z zewnątrz, np. treść wysłaną do upstreamu). Przypadki `known-gap` to strict xfail: znane luki detektorów, które zrobią się czerwone, gdy luka zostanie naprawiona.
+
+**Znane ograniczenia** (ryzyka przyjęte w [`docs/audyt-dlugu/grzegorz.md`](docs/audyt-dlugu/grzegorz.md) i [`docs/audyt-dlugu/sebastian.md`](docs/audyt-dlugu/sebastian.md)):
+
+- Ucięta ostatnia linia audytu blokuje start (łańcuch nie jest kontynuowany na uszkodzonym wpisie); `make verify-audit` wskazuje linię.
+- Endpointy operatora (`/api/*`, `/dashboard`, `/metrics`) bez uwierzytelnienia, na porcie proxy; port wystawiony tylko na `127.0.0.1`.
+- Strażnik ReDoS dla reguł feedu nie łapie łańcuchów wielomianowych (np. `\w*\w*!`); `extra_patterns` heurystyk injection mogą być wykładnicze. Chroni `timeout_ms` + `on_error: block`: zła reguła może zablokować ruch, nie przepuścić ataku.
+- Reguły feedu z `action: redact` ładują się, ale żadna kontrola ich nie redaguje (feed nie ma takich reguł).
+- Prompt Guard: tekst maksymalnej długości potrzebuje ok. 2 s przy `timeout_ms: 800`, więc część blokad to `on_error`, nie wykrycie (kontrola domyślnie wyłączona).
+- Ta sama pętla pollingu w adapterach polityki i feedu (dług, bez wpływu na działanie).
+
+Klucze API, klucze PEM, PESEL-e, numery kart i inne „sekrety” w `tests/cases/` i `signatures/feed.yaml` to atrapy testowe, nie prawdziwe dane.
+
+## Ujawnienie AI i materiałów
+
+**Narzędzia AI** (szczegóły, godziny i co weryfikowaliśmy: [`docs/ai-usage/`](docs/ai-usage/)):
+
+- Grzegorz: Claude Code (omp), modele Claude — kod platformy, testy, dokumentacja ([`grzegorz.md`](docs/ai-usage/grzegorz.md)).
+- Sebastian: Claude Code — detektory, przypadki testowe, dashboard, red team ([`sebastian.md`](docs/ai-usage/sebastian.md)).
+- Maciej: Claude Code (Claude Opus 5.5 / Sonnet) — Docker/Compose, CI, bench, QA, nagrania ([`maciej.md`](docs/ai-usage/maciej.md)).
+- Kamil: Gemini 3.8 Flash (High) przez Gemini CLI — przypadki `kamil-*.yaml`, dane do ewaluacji, mapowanie OWASP, slajdy ([`kamil.md`](docs/ai-usage/kamil.md)).
+
+**Modele w działaniu** ([`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md)):
+
+| Model | Licencja | Użycie |
+|---|---|---|
+| Llama Prompt Guard 2 86M (ONNX, `make models`) | Llama 4 Community License | detektor `prompt_guard` (C07), domyślnie wyłączony |
+| `llama-guard3:1b` (Ollama) | Llama 3.2 Community License | detektor `harmful_content`, poza domyślną polityką |
+| `llama3.2:3b` (Ollama) | Llama 3.2 Community License | model czatu w demo (upstream, nie jest częścią kontroli) |
+
+Biblioteki i narzędzia z wersjami i licencjami: [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md). garak (NVIDIA, Apache-2.0) uruchamiany przez `uvx`, poza `uv.lock`.
+
+**Zbiory do ewaluacji FP/FN** ([`docs/eval/SOURCES.md`](docs/eval/SOURCES.md); nie ma ich w repo, generuje je `scripts/prepare_eval_data.py`): deepset/prompt-injections (Apache-2.0), Lakera/gandalf_ignore_instructions (MIT), JailbreakBench/JBB-Behaviors (MIT), Paul/XSTest (CC-BY-4.0), `docs/eval/pl-manual.yaml` (własny zespołu).
+
+**Praca sprzed okna (3.10 11:00).** `git log --reverse --format='%h %ad %s' --date=iso`:
+
+```text
+230a815 2026-10-03 10:18:16 +0200 init
+9555936 2026-10-03 10:51:33 +0200 docker init
+f579821 2026-10-03 11:23:35 +0200 knowledge base unit
+```
+
+Przed 11:00 powstały tylko: `README.md` z jedną linią (`230a815`) i szablon Dockera (`9555936`: `Dockerfile`, `compose.yaml`, `.dockerignore`, `README.Docker.md`). Szablon został przepisany w oknie (D2, Maciej; `README.Docker.md` usunięty). Cały kod, testy i baza wiedzy (z materiałów organizatora) powstały od 11:23.
+
+### Built with Llama
+
+**Built with Llama.** Używamy modeli Llama: Llama Prompt Guard 2 86M (Llama 4 Community License), `llama-guard3:1b` i `llama3.2:3b` (Llama 3.2 Community License). Obie licencje w § 1.b.i wymagają przy udostępnianiu produktu zawierającego materiały Llama: „(B) prominently display “Built with Llama” on a related website, user interface, blogpost, about page, or product documentation” ([Llama 4](https://www.llama.com/llama4/license/), [Llama 3.2](https://github.com/meta-llama/llama-models/blob/main/models/llama3_2/LICENSE)). Wag modeli nie rozpowszechniamy: pobiera je użytkownik (`make models`, `ollama pull`) razem z licencją.
 
 ## Dlaczego to zadanie
 
