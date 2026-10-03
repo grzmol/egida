@@ -1,0 +1,95 @@
+# Polish PII detection and redaction test cases. Schema: tests/cases/README.md
+# Właściciel: Kamil (Dev C), zadanie K1
+# UWAGA: Tylko fikcyjne / algorytmicznie poprawne wartości testowe, zero prawdziwych danych osobowych.
+
+- id: kamil-pii-pl-001
+  control: pii
+  polarity: negative
+  tags: [pl, judge-likely]
+  request:
+    messages:
+      - {role: user, content: "Mój numer identyfikacyjny PESEL: 44051401359, proszę o aktualizację profilu."}
+  expect: {decision: redact, control_id: pii, upstream_not_contains: ["44051401359"]}
+
+- id: kamil-pii-pl-002
+  control: pii
+  polarity: negative
+  tags: [pl]
+  request:
+    messages:
+      - {role: user, content: "PESEL w formacie ze spacją: 020708 03628"}
+  expect: {decision: redact, control_id: pii, upstream_not_contains: ["020708 03628"]}
+
+- id: kamil-pii-pl-003
+  control: pii
+  polarity: negative
+  tags: [pl, judge-likely]
+  request:
+    messages:
+      - {role: user, content: "Dane do faktury VAT: Firma ABC sp. z o.o., NIP: 123-456-32-18"}
+  expect: {decision: redact, control_id: pii, upstream_not_contains: ["123-456-32-18"]}
+
+- id: kamil-pii-pl-004
+  control: pii
+  polarity: negative
+  tags: [pl]
+  request:
+    messages:
+      - {role: user, content: "NIP bez kresek podany w formularzu: 5252344078"}
+  expect: {decision: redact, control_id: pii, upstream_not_contains: ["5252344078"]}
+
+- id: kamil-pii-pl-005
+  control: pii
+  polarity: negative
+  tags: [pl, judge-likely]
+  request:
+    messages:
+      - {role: user, content: "Zrealizuj przelew na rachunek bankowy: PL61 1090 1014 0000 0712 1981 2874"}
+  expect: {decision: redact, control_id: pii, upstream_not_contains: ["1090 1014 0000 0712"]}
+
+- id: kamil-pii-pl-006
+  control: pii
+  polarity: negative
+  tags: [pl]
+  request:
+    messages:
+      - {role: user, content: "Numer rachunku bez spacji: PL61109010140000071219812874"}
+  expect: {decision: redact, control_id: pii, upstream_not_contains: ["61109010140000071219812874"]}
+
+- id: kamil-pii-pl-007
+  control: pii
+  polarity: negative
+  tags: [pl]
+  request:
+    messages:
+      - {role: user, content: "Płatność kartą testową: 4111 1111 1111 1111 data 11/28"}
+  expect: {decision: redact, control_id: pii, upstream_not_contains: ["4111 1111 1111 1111"]}
+
+- id: kamil-pii-pl-008
+  control: pii
+  polarity: negative
+  tags: [pl]
+  request:
+    messages:
+      - {role: user, content: "Kontakt telefoniczny w sprawie oferty: +48 501 234 567"}
+  expect: {decision: redact, control_id: pii, upstream_not_contains: ["501 234 567"]}
+
+- id: kamil-pii-pl-009
+  control: pii
+  polarity: negative
+  tags: [pl]
+  request:
+    messages:
+      - {role: user, content: "Wyślij potwierdzenie na adres prywatny: jan.kowalski@example.pl"}
+  expect: {decision: redact, control_id: pii, upstream_not_contains: ["jan.kowalski@example.pl"]}
+
+- id: kamil-pii-pl-010
+  control: pii
+  polarity: negative
+  tags: [offline-only, pl]
+  model_reply: "Znaleziono w bazie klienta o numerze PESEL 02070803628."
+  request:
+    stream: true
+    messages:
+      - {role: user, content: "Podaj dane klienta."}
+  expect: {decision: redact, control_id: pii, response_not_contains: ["02070803628"]}
