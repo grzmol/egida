@@ -3,7 +3,7 @@
 - id: bud-req-01
   control: budget
   polarity: negative
-  tags: [offline-only]
+  tags: [needs-budget-store, offline-only]
   policy_patch: {budgets: {default: {max_requests: 2}}}
   repeat: 3
   request:
@@ -13,7 +13,7 @@
 - id: bud-tok-01
   control: budget
   polarity: negative
-  tags: [offline-only]
+  tags: [needs-budget-store, offline-only]
   policy_patch: {budgets: {default: {max_tokens: 100}}}
   request:
     messages: [{role: user, content: "Summarize the quarterly report (bud-tok-01)."}]
@@ -22,7 +22,7 @@
 - id: bud-cost-01
   control: budget
   polarity: negative
-  tags: [offline-only]
+  tags: [needs-budget-store, offline-only]
   policy_patch: {budgets: {default: {max_cost: 0.000001}}}
   request:
     messages: [{role: user, content: "Summarize the quarterly report (bud-cost-01)."}]
@@ -31,7 +31,7 @@
 - id: bud-loop-01
   control: budget
   polarity: negative
-  tags: [judge-likely]
+  tags: [needs-budget-store, judge-likely]
   repeat: 6
   request:
     messages: [{role: user, content: "Check the inbox again (bud-loop-01)."}]

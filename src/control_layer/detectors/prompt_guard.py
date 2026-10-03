@@ -7,6 +7,7 @@ loads the model before any policy exists. Built with Llama (Llama 4 Community Li
 
 import os
 import re
+from functools import lru_cache
 from pathlib import Path
 from typing import ClassVar
 
@@ -52,24 +53,29 @@ def selected_texts(
     return chosen
 
 
+@lru_cache(maxsize=2)
+def load_model(root: Path) -> tuple[ort.InferenceSession, Tokenizer]:
+    """One session per model directory per process: loading costs ~0.3 s and 300 MB."""
+    model, tokenizer_path = root / "model.quant.onnx", root / "tokenizer.json"
+    for path in (model, tokenizer_path):
+        if not path.is_file():
+            raise FileNotFoundError(f"{path} missing; run `make models`")
+    options = ort.SessionOptions()
+    options.intra_op_num_threads = 4  # x2 concurrent scans (limiter) = 8 cores
+    session = ort.InferenceSession(str(model), options, providers=["CPUExecutionProvider"])
+    tokenizer = Tokenizer.from_file(str(tokenizer_path))
+    tokenizer.no_padding()  # the export pads to 512; short prompts run 20x faster
+    tokenizer.enable_truncation(WINDOW_TOKENS, stride=WINDOW_OVERLAP)
+    return session, tokenizer
+
+
 class PromptGuardDetector:
     kind: ClassVar[str] = "prompt_guard"
     Params: ClassVar[type[BaseModel]] = PromptGuardParams
 
     def __init__(self, model_dir: Path | None = None) -> None:
         root = model_dir or Path(os.environ.get("CONTROL_LAYER_MODELS_DIR", "models")) / MODEL_NAME
-        model, tokenizer = root / "model.quant.onnx", root / "tokenizer.json"
-        for path in (model, tokenizer):
-            if not path.is_file():
-                raise FileNotFoundError(f"{path} missing; run `make models`")
-        options = ort.SessionOptions()
-        options.intra_op_num_threads = 4  # x2 concurrent scans (limiter) = 8 cores
-        self._session = ort.InferenceSession(
-            str(model), options, providers=["CPUExecutionProvider"]
-        )
-        self._tokenizer = Tokenizer.from_file(str(tokenizer))
-        self._tokenizer.no_padding()  # the export pads to 512; short prompts run 20x faster
-        self._tokenizer.enable_truncation(WINDOW_TOKENS, stride=WINDOW_OVERLAP)
+        self._session, self._tokenizer = load_model(root.resolve())
         self._limiter: anyio.CapacityLimiter | None = None
 
     def malicious_probability(self, text: str, max_windows: int) -> tuple[float, int]:

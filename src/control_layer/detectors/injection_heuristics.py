@@ -19,8 +19,14 @@ from control_layer.detectors.normalize import mixed_script_words, views
 
 _EN_ADJ = r"(previous|prior|above|earlier|preceding|system|initial|original|your|all)"
 _EN_NOUN = r"(instructions?|prompts?|rules|directives|guidelines|guardrails)"
-_PL_ADJ = r"(poprzednie|wczesniejsze|powyzsze|wszystkie|dotychczasowe|systemowe|twoje)"
-_PL_NOUN = r"(instrukcje|instrukcji|polecenia|polecen|zasady|zasad|reguly|regul|wytyczne|prompty?)"
+_PL_ADJ = (
+    r"(poprzednie|wczesniejsze|powyzsze|wszystkie|dotychczasowe|systemowe|"
+    r"twoje|swoje|swoich|twoich)"
+)
+_PL_NOUN = (
+    r"(instrukcje|instrukcji|polecenia|polecen|zasady|zasad|reguly|regul|"
+    r"wytyczne|wytycznych|prompty?)"
+)
 
 PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
     (name, re.compile(rx))
@@ -55,6 +61,16 @@ PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         (
             "obey_only_me",
             r"\b(obey|listen to|follow) only (me|my (instructions|orders|commands))\b",
+        ),
+        (
+            "ignore_authority",
+            r"\b(ignore|disregard|forget)\s+(what|everything|anything)\s+(the\s+)?"
+            r"(developer|system|admin|operator|you (were|have been) told)",
+        ),
+        (
+            "policy_revoked",
+            r"\b(system override|(safety|security) (policy|rules|filters|guidelines) "
+            r"(is|are|has been|have been) (revoked|disabled|lifted|removed))\b",
         ),
         ("do_anything_now", r"\bdo anything now\b"),
         ("mode_switch", r"\b(enable|activate|enter)\w*\s+(developer|dan|god|jailbreak)\s+mode\b"),

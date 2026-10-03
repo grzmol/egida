@@ -104,7 +104,7 @@ async def test_long_text_uses_windows_and_stays_fast(detector: PromptGuardDetect
     )
     started = time.perf_counter()
     [finding] = await detector.scan(ctx)
-    assert time.perf_counter() - started < 1.0
+    assert time.perf_counter() - started < 3.0  # ~0.8 s idle on M5 Pro; slack for loaded CI
     assert "windows=1" not in finding.evidence
 
 
