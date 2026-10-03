@@ -17,7 +17,7 @@
 | 2 | `git checkout final` | Przełączenie na oficjalny tag finałowy | _do wypełnienia_ | — | |
 | 3 | `uv sync` | Pomyślna instalacja zależności z `uv.lock` | _do wypełnienia_ | — | |
 | 4 | `make models` | Pobranie i weryfikacja sha256 modelu Prompt Guard 2 (opcjonalny, domyślnie wyłączony) | _do wypełnienia_ | — | |
-| 5 | `make check` | Zielone lintery, kontrakty heksagonalne i testy (próba 3.10: 917 passed, 76 skipped) | _do wypełnienia_ | — | |
+| 5 | `make check` | Zielone lintery, kontrakty heksagonalne i testy (próba 3.10: 930 passed, 76 skipped) | _do wypełnienia_ | — | |
 | 6 | `make run` | Start proxy na porcie 8080 | _do wypełnienia_ | — | |
 | 7 | Dashboard webowy | Otwarcie `http://127.0.0.1:8080/dashboard` | _do wypełnienia_ | — | |
 | 8 | Normalne zapytanie agenta | Decyzja `allow`, odpowiedź modelu, nagłówki `X-Control-*` i `X-Policy-*` | _do wypełnienia_ | — | Wymaga Ollamy; bez niej 502 |
