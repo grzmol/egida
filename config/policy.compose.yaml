@@ -1,7 +1,7 @@
 # Compose copy of config/policy.yaml. Owner: Maciej (Dev D).
 # Differs ONLY in upstreams (Ollama by service name) and timeouts; tests/unit/deploy guards parity.
 # In Docker Compose edit THIS file (mounted as a directory, hot reload works).
-# AI Control Layer — policy v1 (schema: src/control_layer/core/policy.py, ADR-0003).
+# AI Control Layer: policy v1 (schema: src/control_layer/core/policy.py, ADR-0003).
 # Edited live: changes apply without restart; an invalid file is rejected and the last valid policy stays.
 version: 1
 

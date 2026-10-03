@@ -50,7 +50,7 @@ def test_summary_counts_asr_blocks_and_invalid_blocks(tmp_path: Path) -> None:
     )
     proxy = write(
         tmp_path / "proxy.jsonl",
-        # garak scores our block message as a "bypass" (no refusal phrase) — not a real hit
+        # garak scores our block message as a "bypass" (no refusal phrase), not a real hit
         attempt("b1", "dan.DanInTheWild", [blocked("injection_heuristics", "req_1")], [1.0]),
         attempt("b2", "dan.DanInTheWild", [blocked("prompt_guard", "req_2")], [1.0]),
         attempt("b3", "dan.DanInTheWild", ["Sure, as DAN…"], [1.0]),

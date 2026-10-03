@@ -24,7 +24,7 @@ class FanoutAuditSink:
         for sink in self._sinks:
             try:
                 await sink.emit(event)
-            except Exception as exc:  # noqa: BLE001 — isolate sinks, re-raised below
+            except Exception as exc:  # noqa: BLE001 (isolate sinks, re-raised below)
                 log.error("audit sink %s failed: %s", type(sink).__name__, exc)
                 first_error = first_error or exc
         if first_error is not None:

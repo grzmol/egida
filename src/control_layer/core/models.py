@@ -1,6 +1,6 @@
 """Domain model of the control layer.
 
-Frozen contract v1 — changes need an announcement (docs/WORKPLAN.md).
+Frozen contract v1: changes need an announcement (docs/WORKPLAN.md).
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ class Category(StrEnum):
     LIMIT = "limit"
     BUDGET = "budget"
     PII = "pii"
-    SECRET = "secret"  # noqa: S105 — category name, not a credential
+    SECRET = "secret"  # noqa: S105 (category name, not a credential)
     INJECTION = "injection"
     HARMFUL = "harmful"
     SIGNATURE = "signature"

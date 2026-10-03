@@ -7,7 +7,7 @@ import pytest
 from control_layer.core.canary import CANARY_RE, inject_canary, new_canary
 from control_layer.core.models import Interaction, Message
 
-TOKEN = "cl-canary-0123456789abcdef"  # noqa: S105 — canary token, not a credential
+TOKEN = "cl-canary-0123456789abcdef"  # noqa: S105 (canary token, not a credential)
 
 
 def _chat(*messages: Message) -> Interaction:

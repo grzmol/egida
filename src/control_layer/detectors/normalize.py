@@ -22,7 +22,8 @@ _CONFUSABLES = str.maketrans(
         "τ": "t", "υ": "u", "χ": "x",
         "ł": "l", "ı": "i",
         **dict(zip("ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘʀꜱᴛᴜᴠᴡʏᴢ", "abcdefghijklmnoprstuvwyz", strict=True)),
-        # squared / negative circled / negative squared Latin letters (🄰, 🅐, 🅰), not folded by NFKC
+        # squared / negative circled / negative squared Latin letters (U+1F130, U+1F150, U+1F170
+        # blocks), not folded by NFKC
         **{chr(b + i): chr(ord("a") + i) for b in (0x1F130, 0x1F150, 0x1F170) for i in range(26)},
     }
 )  # fmt: skip

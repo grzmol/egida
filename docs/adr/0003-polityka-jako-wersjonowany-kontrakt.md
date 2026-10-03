@@ -1,4 +1,4 @@
-# ADR-0003: Polityka jako wersjonowany kontrakt z hot reloadem
+# ADR-0003: Polityka jako wersjonowany kontrakt z przeładowaniem na żywo
 
 **Status**: Accepted
 **Data**: 2026-10-03
@@ -11,8 +11,8 @@ Wymaganie R1: jedno źródło konfiguracji dla kontroli, progów (blokuj vs reda
 
 - Polityka w pliku YAML (`config/policy.yaml`) z polem `version`.
 - Schemat Pydantic w `core/policy.py`; każda kontrola ma: `enabled`, `action` (`block | redact | allow`), `threshold`, `on_error`, parametry własne.
-- Źródło polityki za portem `PolicySource` — plik teraz, system zewnętrzny później bez zmian w rdzeniu.
-- Hot reload: wykrycie zmiany → walidacja → atomowa podmiana niezmiennego obiektu polityki. Błędna polityka jest odrzucana, działa ostatnia poprawna, błąd trafia do audytu i na dashboard.
+- Źródło polityki za portem `PolicySource`: plik teraz, system zewnętrzny później bez zmian w rdzeniu.
+- Przeładowanie na żywo: wykrycie zmiany → walidacja → atomowa podmiana niezmiennego obiektu polityki. Proxy odrzuca błędną politykę i dalej używa ostatniej poprawnej. Błąd trafia do dziennika audytu i na dashboard.
 - Każde żądanie używa jednej migawki polityki od początku do końca.
 - Warianty `policy.strict.yaml` i `policy.lenient.yaml` jako deliverable „Sample Configuration”.
 

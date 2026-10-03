@@ -40,7 +40,7 @@ def _write(path: Path, lines: list[str]) -> None:
 
 
 def _cli(*args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603 — fixed argv, no shell
+    return subprocess.run(  # noqa: S603 (fixed argv, no shell)
         [sys.executable, "-m", "control_layer.adapters.audit_jsonl", *args],
         capture_output=True,
         text=True,

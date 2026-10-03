@@ -7,7 +7,7 @@ from control_layer.core.models import Category, Interaction, Message, Side, Tool
 from control_layer.core.ports import ScanContext
 from control_layer.detectors.canary import CanaryDetector, CanaryParams
 
-TOKEN = "cl-canary-0123456789abcdef"  # noqa: S105 — test canary, not a secret
+TOKEN = "cl-canary-0123456789abcdef"  # noqa: S105 (test canary, not a secret)
 HEX = "0123456789abcdef"
 
 

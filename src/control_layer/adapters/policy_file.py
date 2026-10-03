@@ -69,7 +69,7 @@ class PolicyFile:
         while True:
             try:
                 await self.check_once()
-            except Exception as exc:  # noqa: BLE001 — keep hot reload alive; failure is audited
+            except Exception as exc:  # noqa: BLE001 (keep hot reload alive; failure is audited)
                 log.exception("policy reload check failed")
                 self._last_error = f"reload check failed: {type(exc).__name__}: {exc}"
             await anyio.sleep(self._interval_s)

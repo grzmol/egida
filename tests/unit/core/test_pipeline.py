@@ -367,7 +367,7 @@ async def test_settled_usage_and_cost_are_audited(policy_dict: dict[str, Any]) -
 
 # --- C22 canary injection (B7) -----------------------------------------------------------
 
-CANARY_TOKEN = "cl-canary-0123456789abcdef"  # noqa: S105 — canary token, not a credential
+CANARY_TOKEN = "cl-canary-0123456789abcdef"  # noqa: S105 (canary token, not a credential)
 
 
 def _canary_pipeline(

@@ -151,7 +151,7 @@ def run_tool(name: str, args: dict[str, Any]) -> str:
         return DOCS_SNIPPET
     if name == "http_get":
         host = urlsplit(str(args.get("url", ""))).hostname or "?"
-        print(f"   ⚠ agent chciał wywołać http_get → {host} (sandbox: nie wysłano)")
+        print(f"   ! agent chciał wywołać http_get → {host} (sandbox: nie wysłano)")
         return "(sandbox) not sent"
     return f"(unknown tool {name})"
 

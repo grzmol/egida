@@ -1,4 +1,4 @@
-"""Policy schema v1 (ADR-0003). Validation only — loading from files lives in adapters.
+"""Policy schema v1 (ADR-0003). Validation only; loading from files lives in adapters.
 
 Every model forbids unknown fields: a typo in YAML rejects the policy instead of being ignored.
 After `build_policy`, `ControlSpec.params` is an instance of the detector's `Params` model.

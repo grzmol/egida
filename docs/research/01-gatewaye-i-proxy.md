@@ -1,10 +1,10 @@
-# 01 — Gatewaye, proxy i frameworki guardrails: przegląd istniejących rozwiązań
+# 01. Gatewaye, proxy i frameworki guardrails: przegląd istniejących rozwiązań
 
 Stan na 2026-10-03. Metoda: metadane z GitHub API (licencja z pliku `LICENSE`, ostatni push, ostatni release), PyPI JSON i dokumentacja projektów. Ramę wzięliśmy ze skilla `competitive-landscape` (profil konkurenta, mapa pozycjonowania) i dostosowaliśmy ją do narzędzi OSS. `[INFERENCE]` oznacza nasz wniosek, a nie fakt zapisany w źródle.
 
 ## 1. Profil zbiorczy
 
-| Narzędzie | Kategoria | Język | Licencja (zweryfikowana) | OpenAI-compat proxy | MCP | Aktywność | Werdykt |
+| Narzędzie | Kategoria | Język | Licencja (zweryfikowana) | OpenAI-compat proxy | MCP | Aktywność | Ocena |
 |---|---|---|---|---|---|---|---|
 | [LiteLLM](https://github.com/BerriAI/litellm) | gateway LLM + MCP + A2A | Python | MIT; katalog `enterprise/` na osobnej licencji ([LICENSE](https://github.com/BerriAI/litellm/blob/main/LICENSE)) | tak | tak, [MCP Gateway](https://docs.litellm.ai/docs/mcp.md) | v1.103.2, 2026-10-01 | **inspiracja**; ewentualnie tylko [cennik modeli](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json) jako dane |
 | [Portkey Gateway](https://github.com/Portkey-AI/gateway) | gateway LLM | TypeScript | MIT | tak | [MCP Gateway](https://portkey.ai/docs/product/mcp-gateway) w ofercie hostowanej `[INFERENCE: brak w repo OSS]` | v1.15.2, 2026-01-12; gałąź 2.0.0 (pre-release) | inspiracja |
@@ -13,23 +13,23 @@ Stan na 2026-10-03. Metoda: metadane z GitHub API (licencja z pliku `LICENSE`, o
 | [agentgateway](https://github.com/agentgateway/agentgateway) | proxy LLM + MCP + A2A (Linux Foundation) | Rust | Apache-2.0 | tak | tak, wszystkie transporty | v1.6.0, 2026-10-02 | **inspiracja** (najbliższy architektonicznie) |
 | [Bifrost](https://github.com/maximhq/bifrost) | gateway LLM | Go | Apache-2.0 | tak | klient MCP; „MCP gateway” i guardrails wg README to Enterprise | tag 2026-10-02 | skip |
 | [Higress](https://github.com/higress-group/higress) | API gateway Istio/Envoy + Wasm | Go | Apache-2.0 | tak (`ai-proxy`) | hosting serwerów MCP | v2.2.4, 2026-08-13 | skip |
-| [Apache APISIX](https://github.com/apache/apisix) | API gateway + wtyczki AI | Lua | Apache-2.0 | tak (`ai-proxy`) | — | 3.19.0, 2026-09-28 | skip |
-| [Plano (dawniej archgw)](https://github.com/katanemo/plano) | proxy agentowe na Envoy | Rust | Apache-2.0 | tak | — `[niezweryfikowane]` | 0.4.37, 2026-09-28 | skip |
-| [Helicone AI Gateway](https://github.com/Helicone/ai-gateway) | gateway LLM | Rust | **GPL-3.0** | tak | — | ostatni push 2025-11-21 | skip (licencja, aktywność) |
-| [TensorZero](https://github.com/tensorzero/tensorzero) | LLMOps + gateway | Rust | Apache-2.0 | tak | — | **repo zarchiwizowane** (flaga GitHub, przyczyna niepodana) | skip |
-| [NeMo Guardrails](https://github.com/NVIDIA-NeMo/Guardrails) | framework guardrails | Python | Apache-2.0 ([LICENSE.md](https://github.com/NVIDIA-NeMo/Guardrails/blob/develop/LICENSE.md)) | serwer z `/v1/chat/completions` | — | v0.24.1, 2026-09-16 | inspiracja (taksonomia rails) |
-| [Guardrails AI](https://github.com/guardrails-ai/guardrails) | framework walidatorów | Python | Apache-2.0 | serwer Flask, klient OpenAI SDK | — | v0.11.0, 2026-08-14 | inspiracja |
-| [LLM Guard](https://github.com/protectai/llm-guard) | biblioteka skanerów | Python | MIT | — (osobne API) | — | **zarchiwizowane**; README: „no longer under active development” | inspiracja (lista skanerów) |
-| [LlamaFirewall](https://github.com/meta-llama/PurpleLlama/tree/main/LlamaFirewall) | firewall agentów | Python | kod MIT ([LICENSE](https://github.com/meta-llama/PurpleLlama/blob/main/LlamaFirewall/LICENSE)); licencja modeli `[niezweryfikowane]` | — | — | PyPI 1.0.3, 2025-05-29; commity 2026-08 | do oceny w raporcie o detektorach |
+| [Apache APISIX](https://github.com/apache/apisix) | API gateway + wtyczki AI | Lua | Apache-2.0 | tak (`ai-proxy`) | - | 3.19.0, 2026-09-28 | skip |
+| [Plano (dawniej archgw)](https://github.com/katanemo/plano) | proxy agentowe na Envoy | Rust | Apache-2.0 | tak | - `[niezweryfikowane]` | 0.4.37, 2026-09-28 | skip |
+| [Helicone AI Gateway](https://github.com/Helicone/ai-gateway) | gateway LLM | Rust | **GPL-3.0** | tak | - | ostatni push 2025-11-21 | skip (licencja, aktywność) |
+| [TensorZero](https://github.com/tensorzero/tensorzero) | LLMOps + gateway | Rust | Apache-2.0 | tak | - | **repo zarchiwizowane** (flaga GitHub, przyczyna niepodana) | skip |
+| [NeMo Guardrails](https://github.com/NVIDIA-NeMo/Guardrails) | framework guardrails | Python | Apache-2.0 ([LICENSE.md](https://github.com/NVIDIA-NeMo/Guardrails/blob/develop/LICENSE.md)) | serwer z `/v1/chat/completions` | - | v0.24.1, 2026-09-16 | inspiracja (taksonomia rails) |
+| [Guardrails AI](https://github.com/guardrails-ai/guardrails) | framework walidatorów | Python | Apache-2.0 | serwer Flask, klient OpenAI SDK | - | v0.11.0, 2026-08-14 | inspiracja |
+| [LLM Guard](https://github.com/protectai/llm-guard) | biblioteka skanerów | Python | MIT | - (osobne API) | - | **zarchiwizowane**; README: „no longer under active development” | inspiracja (lista skanerów) |
+| [LlamaFirewall](https://github.com/meta-llama/PurpleLlama/tree/main/LlamaFirewall) | firewall agentów | Python | kod MIT ([LICENSE](https://github.com/meta-llama/PurpleLlama/blob/main/LlamaFirewall/LICENSE)); licencja modeli `[niezweryfikowane]` | - | - | PyPI 1.0.3, 2025-05-29; commity 2026-08 | do oceny w raporcie o detektorach |
 | [Invariant Guardrails](https://github.com/invariantlabs-ai/invariant) + [Gateway](https://github.com/invariantlabs-ai/invariant-gateway) | język reguł + proxy LLM/MCP | Python | Apache-2.0 | tak (zmiana base URL) | tak | push 2026-01 / 2025-11 | inspiracja (język reguł) |
-| [Snyk Agent Scan (dawniej mcp-scan)](https://github.com/snyk/agent-scan) | skaner konfiguracji MCP i skills | Python | Apache-2.0 | — | skanuje | v0.6.8, 2026-09-29; wymaga `SNYK_TOKEN` | inspiracja (klasy ataków MCP) |
+| [Snyk Agent Scan (dawniej mcp-scan)](https://github.com/snyk/agent-scan) | skaner konfiguracji MCP i skills | Python | Apache-2.0 | - | skanuje | v0.6.8, 2026-09-29; wymaga `SNYK_TOKEN` | inspiracja (klasy ataków MCP) |
 | [IBM ContextForge](https://github.com/IBM/mcp-context-forge) | gateway MCP + A2A + REST | Python | Apache-2.0 | routing agentów zgodny z OpenAI | tak | v1.0.11, 2026-09-28 | inspiracja (wtyczki MCP) |
-| [Docker MCP Gateway](https://github.com/docker/mcp-gateway) | gateway MCP, kontenery | Go | MIT | — | tak | push 2026-09-23 | skip (inny problem: izolacja) |
-| [Microsoft MCP Gateway](https://github.com/microsoft/mcp-gateway) | reverse proxy MCP na K8s | C# | MIT | — | tak (MCP `2026-07-28`) | push 2026-10-02 | skip |
-| [Lasso MCP Gateway](https://github.com/lasso-security/mcp-gateway) | gateway MCP z wtyczkami | Python | MIT | — | tak | v1.2.0, 2026-01-21 | inspiracja |
-| [MetaMCP](https://github.com/metatool-ai/metamcp) | agregator MCP | TypeScript | MIT | — | tak | v2.4.22, 2025-12-19 | skip |
+| [Docker MCP Gateway](https://github.com/docker/mcp-gateway) | gateway MCP, kontenery | Go | MIT | - | tak | push 2026-09-23 | skip (inny problem: izolacja) |
+| [Microsoft MCP Gateway](https://github.com/microsoft/mcp-gateway) | reverse proxy MCP na K8s | C# | MIT | - | tak (MCP `2026-07-28`) | push 2026-10-02 | skip |
+| [Lasso MCP Gateway](https://github.com/lasso-security/mcp-gateway) | gateway MCP z wtyczkami | Python | MIT | - | tak | v1.2.0, 2026-01-21 | inspiracja |
+| [MetaMCP](https://github.com/metatool-ai/metamcp) | agregator MCP | TypeScript | MIT | - | tak | v2.4.22, 2025-12-19 | skip |
 
-## 2. Profile kluczowych narzędzi
+## 2. Profile głównych narzędzi
 
 ### LiteLLM (punkt odniesienia nr 1)
 - **Polityka:** `config.yaml` czytany przy starcie. Zmiany „day-2” są możliwe przez Admin UI i bazę danych ([Model Management](https://docs.litellm.ai/docs/proxy/model_management.md)); klucze, UI i rozliczanie kosztów wymagają Postgresa ([llms.txt](https://docs.litellm.ai/llms.txt)).
@@ -68,7 +68,7 @@ Stan na 2026-10-03. Metoda: metadane z GitHub API (licencja z pliku `LICENSE`, o
 - **Lasso:** wtyczki `basic` (maskowanie tokenów), `presidio` i `lasso` (płatne API), a także skaner reputacji serwerów MCP przed ich załadowaniem ([README](https://github.com/lasso-security/mcp-gateway)).
 
 ### Komercyjne benchmarki (nie do użycia: płatne lub chmurowe)
-| Usługa | Co warto skopiować koncepcyjnie | Źródło |
+| Usługa | Co skopiować koncepcyjnie | Źródło |
 |---|---|---|
 | Lakera Guard (dziś pod marką Check Point AI Security) | jedno API klasyfikacji promptu i odpowiedzi | [docs](https://docs.lakera.ai/docs/api/guard) |
 | Azure AI Content Safety, Prompt Shields | podział na *user prompt attacks* i *document attacks* (pośrednia injekcja) | [docs](https://learn.microsoft.com/en-us/azure/ai-services/content-safety/concepts/jailbreak-detection) |
@@ -76,12 +76,12 @@ Stan na 2026-10-03. Metoda: metadane z GitHub API (licencja z pliku `LICENSE`, o
 | Cloudflare AI Gateway, Guardrails | akcje *flag* (tylko log) i *block* na wejściu i wyjściu | [docs](https://developers.cloudflare.com/ai-gateway/features/guardrails/) |
 | Google Model Armor | filtr promptów i odpowiedzi jako usługa | [docs](https://cloud.google.com/security-command-center/docs/model-armor-overview) |
 
-Standard odniesienia (przekazany przez ThreatCatalog): [OWASP Agent Control Standard](https://github.com/GenAI-Security-Project/agent-control-standard), Apache-2.0, deklaratywne hooki runtime dla agentów. Warto zmapować na niego nasze etapy pipeline'u.
+Standard odniesienia (przekazany przez ThreatCatalog): [OWASP Agent Control Standard](https://github.com/GenAI-Security-Project/agent-control-standard), Apache-2.0, deklaratywne hooki runtime dla agentów. Zmapujemy na niego nasze etapy pipeline'u.
 
 ## 3. Mapa pozycjonowania
 
 Osie wybraliśmy wprost z oceny:
-- **X: zakres ruchu.** Zadanie wymaga app→agent, agent→model, agent→MCP i agent↔agent.
+- **X: zakres ruchu.** Zadanie wymaga app→agent, agent→model, agent→MCP i agent-agent.
 - **Y: głębokość kontroli bezpieczeństwa dostępna lokalnie i bez licencji.** Kryterium „Robustness & guardrails” ma 30%. Liczy się tylko to, co działa offline w OSS, bo nie mamy płatnych API.
 
 ```
@@ -102,10 +102,10 @@ Głębokość kontroli (OSS, lokalnie)
 ## 4. Luka, którą wypełnia nasz projekt
 
 Pozycjonowanie (format ze skilla):
-> Dla zespołów platformowych, które wpuszczają agentów do wrażliwych systemów, AI Control Layer to proxy działające w pełni lokalnie. Jeden walidowany plik polityki steruje w nim jednocześnie decyzją ALLOW/REDACT/BLOCK, budżetami i sygnaturami ataków. W odróżnieniu od LiteLLM i agentgateway warstwa semantyczna działa lokalnie, a bezpieczeństwo nie zależy od płatnej licencji ani chmury.
+> Dla zespołów platformowych, które wpuszczają agentów do wrażliwych systemów, AI Control Layer to proxy działające w pełni lokalnie. Jeden walidowany plik polityki steruje w nim jednocześnie decyzją `allow`/`redact`/`block`, budżetami i sygnaturami ataków. W odróżnieniu od LiteLLM i agentgateway warstwa semantyczna działa lokalnie, a bezpieczeństwo nie zależy od płatnej licencji ani chmury.
 
 Białe plamy potwierdzone przeglądem:
-1. **Spójne progi block vs redact w jednej polityce** z hot reloadem i zachowaniem ostatniej poprawnej wersji. Gatewaye mają osobno wtyczki, limity i routing, a w LiteLLM guardrails per klucz są w Enterprise.
+1. **Spójne progi block vs redact w jednej polityce** z przeładowaniem na żywo i zachowaniem ostatniej poprawnej wersji. Gatewaye mają osobno wtyczki, limity i routing, a w LiteLLM guardrails per klucz są w Enterprise.
 2. **Lokalna warstwa semantyczna.** Kong, APISIX, Higress i agentgateway delegują ją do API chmurowych. U nas działa na Ollamie i ma jawne `on_error`.
 3. **Znane ataki z zewnętrznego feedu sygnatur** (wykonanie kodu w argumentach narzędzi, pickle, supply chain modeli). Żaden z gatewayów nie ma tego natywnie. Najbliżej są `code_safety_linter` i `virus_total_checker` w ContextForge (MCP) oraz skaner reputacji w Lasso.
 4. **Budżet liczony także dla modeli lokalnych** (compute), a nie tylko z cennika dostawcy `[INFERENCE: w przejrzanych docs nie znaleźliśmy kosztu lokalnego compute]`.
@@ -119,7 +119,7 @@ Białe plamy potwierdzone przeglądem:
 | Opcja | Za | Przeciw |
 |---|---|---|
 | **Własny FastAPI** (OpenAI-compat `/v1/chat/completions`, później adapter MCP) | jury ocenia *naszą* architekturę (20%); pełna kontrola pipeline'u i kolejności tanie→drogie; telemetria per etap; brak Postgresa; mała powierzchnia ataku | ręczna obsługa zgodności OpenAI (streaming, tools); ryzyko opisane w PLAN §9 |
-| Owinięcie LiteLLM (nasze kontrole jako `CustomGuardrail`) | darmowy routing do ponad 100 dostawców, klucze i budżety | nasz kod staje się wtyczką w cudzej architekturze; hot reload polityki wymaga DB; audyt i guardrails per klucz w Enterprise; 17 GHSA w 2026; trudno pokazać heksagonalny rdzeń |
+| Owinięcie LiteLLM (nasze kontrole jako `CustomGuardrail`) | darmowy routing do ponad 100 dostawców, klucze i budżety | nasz kod staje się wtyczką w cudzej architekturze; przeładowanie polityki na żywo wymaga DB; audyt i guardrails per klucz w Enterprise; 17 GHSA w 2026; trudno pokazać heksagonalny rdzeń |
 | agentgateway + nasz webhook | MCP/A2A/CEL od ręki, wydajność Rusta | logika w dwóch procesach i językach; webhook dokłada opóźnienie; jury widzi głównie cudzy produkt |
 
 Co bierzemy bez wiązania architektury:

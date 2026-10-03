@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-DEMO_KEY = "sk-demo-agent"
+# sha256 of the demo agent key "sk-demo-agent"
 DEMO_KEY_SHA256 = "337d3b58b003feda566bd8b4a36d7cdb732ec597f01fe52542cbfd873b1c7ba0"
 
 _POLICY: dict[str, Any] = {
@@ -49,12 +49,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=None,
         help="Base URL of a running control layer instance (live selftest), e.g. http://127.0.0.1:8080",
     )
-
-
-@pytest.fixture
-def target(request: pytest.FixtureRequest) -> str | None:
-    value = request.config.getoption("--target")
-    return str(value) if value else None
 
 
 @pytest.fixture

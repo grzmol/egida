@@ -13,10 +13,14 @@ dependencies = [
     "pydantic>=2.13.5",
     "python-stdnum>=2.2",
     "pyyaml>=6.0.3",
+    "ruamel-yaml>=0.19.1",
     "starlette>=1.7.0",
     "tokenizers>=0.23.2",
     "uvicorn[standard]>=0.54.0",
 ]
+
+[project.scripts]
+egida = "control_layer.egida.__main__:main"
 
 [build-system]
 requires = ["uv_build>=0.9,<0.13"]
@@ -63,12 +67,13 @@ forbidden_modules = [
     "httpx",
     "uvicorn",
     "yaml",
+    "ruamel",
     "onnxruntime",
     "tokenizers",
     "control_layer.adapters",
     "control_layer.detectors",
-    "control_layer.dashboard",
     "control_layer.app",
+    "control_layer.egida",
 ]
 
 [[tool.importlinter.contracts]]

@@ -1,6 +1,6 @@
-# 10 — Brainstorm: perspektywa jury (security engineering) i strategia hackathonowa
+# 10. Brainstorm: perspektywa jury (security engineering) i strategia hackathonowa
 
-Stan: 2026-10-03, ~12:15. Rama: skill `competitive-landscape` (Blue Ocean Four Actions, positioning statement). Fakty z research 01–04 cytuję z sekcją; reszta to `[INFERENCE]`.
+Stan: 2026-10-03, ~12:15. Rama: skill `competitive-landscape` (Blue Ocean Four Actions, positioning statement). Fakty z research 01-04 cytuję z sekcją; reszta to `[INFERENCE]`.
 
 ## 1. Co zbuduje typowy zespół i jak go pobić `[INFERENCE]`
 
@@ -8,10 +8,10 @@ Stan: 2026-10-03, ~12:15. Rama: skill `competitive-landscape` (Blue Ocean Four A
 |---|---|---|
 | Cienki wrapper FastAPI + regex PII + „LLM-as-judge” na każdym żądaniu | p95 w sekundach, przepuszcza parafrazy PL | kolejność tanie→drogie i p95 per etap w telemetrii (PLAN §3); PG2-86M ~110 ms (02 §5) |
 | Owinięcie LiteLLM / NeMo Guardrails | jury ocenia cudzą architekturę; audyt i guardrails per klucz w Enterprise (01 §2) | własny rdzeń heksagonalny, LiteLLM tylko jako źródło cen (01 §5) |
-| Konfiguracja czytana przy starcie | jury edytuje plik → nic się nie dzieje albo crash | hot reload + ostatnia poprawna + wpis w audycie (C19, 03 §4 #24–25) |
+| Konfiguracja czytana przy starcie | jury edytuje plik → nic się nie dzieje albo crash | przeładowanie na żywo + ostatnia poprawna + wpis w audycie (C19, 03 §4 #24-25) |
 | Timeout detektora = przepuszczenie | fail-open, czyli obejście A2.2 (04 §3) | `on_error` per kontrola (ADR-0004, C21) |
 | Kilka testów pytest, same negatywy | brak pozytywów → nadmierne blokowanie niewidoczne | YAML z pozytywami XSTest-like, `selftest --target` (03 §3) |
-| „Historyczne ataki” = jeden regex `rm -rf` | R4 pokazane symbolicznie | feed sygnatur z CVE i testami w regule (04 §5–6) |
+| „Historyczne ataki” = jeden regex `rm -rf` | R4 pokazane symbolicznie | feed sygnatur z CVE i testami w regule (04 §5-6) |
 | Streamlit z licznikami | brak rozróżnienia zarząd/bezpieczeństwo, brak eksportu | dwa widoki + eksport + łańcuch hashy (§4) |
 
 **Rekomendacja (ranking):** 1) nie rywalizować liczbą detektorów, tylko *dowodliwością* każdej decyzji; 2) obsłużyć 10 prób ad hoc z 03 §4 (#1, #4, #6, #7, #8, #11, #14, #15, #20, #24) zanim dodamy cokolwiek z backlogu.
@@ -32,10 +32,12 @@ Stan: 2026-10-03, ~12:15. Rama: skill `competitive-landscape` (Blue Ocean Four A
 | **Create** | mapa pokrycia OWASP LLM 2025/2026 + ASI per kontrola, liczona z polityki | kontra wobec 01 §4 #6 |
 | **Create** (P1) | „what-if”: przed zastosowaniem nowej polityki odtwórz ostatnie N zdarzeń audytu i pokaż różnicę decyzji | odpowiedź na „jury zmienia progi” |
 
-**Niezgodności z PLAN:** mapa OWASP jest w backlogu (PLAN §5) — proponuję P0, bo to tagi w polityce, nie kod. C20 (łańcuch hashy) ma P1 (04 §4) — proponuję P0 dla widoku security, koszt `[INFERENCE]` < 1 h.
+**Niezgodności z PLAN:**
+- Mapa OWASP jest w backlogu (PLAN §5). Proponuję P0, bo to tagi w polityce, nie kod.
+- C20 (łańcuch hashy) ma P1 (04 §4). Proponuję P0 dla widoku security, koszt `[INFERENCE]` < 1 h.
 
 **Positioning statement:**
-> Dla zespołów bezpieczeństwa w instytucjach finansowych, które wpuszczają agentów AI do systemów produkcyjnych, AI Control Layer to lokalna warstwa polityk (policy-as-code), która przy każdej interakcji agenta decyduje ALLOW/REDACT/BLOCK, pilnuje budżetów i blokuje znane exploity. W odróżnieniu od gatewayów (LiteLLM, agentgateway), które delegują semantykę do chmury lub licencji Enterprise (01 §2–3), każda nasza decyzja ma paragon z kontrolą, wersją polityki i tagiem OWASP, a produkt sam dowodzi swojego pokrycia testem na żywej instancji.
+> Dla zespołów bezpieczeństwa w instytucjach finansowych, które wpuszczają agentów AI do systemów produkcyjnych, AI Control Layer to lokalna warstwa polityk (policy-as-code). Przy każdej interakcji agenta decyduje `allow`/`redact`/`block`, pilnuje budżetów i blokuje znane exploity. Gatewaye (LiteLLM, agentgateway) delegują semantykę do chmury lub licencji Enterprise (01 §2-3). U nas każda decyzja ma paragon z kontrolą, wersją polityki i tagiem OWASP. Produkt sam dowodzi swojego pokrycia testem na żywej instancji.
 
 **Co zapamięta jury:** hasło „Każda decyzja ma paragon” + moment, w którym jury samo edytuje plik i widzi zmianę na dashboardzie w ciągu sekund.
 
@@ -44,44 +46,48 @@ Stan: 2026-10-03, ~12:15. Rama: skill `competitive-landscape` (Blue Ocean Four A
 | # | Moment | Kryteria (waga) | Wymagania | Ranking |
 |---|---|---|---|---|
 | W1 | Jury zmienia `pii.action: redact → block` (albo psuje YAML) → dashboard pokazuje nową wersję polityki, ten sam prompt zmienia decyzję; zły YAML odrzucony, działa ostatnia poprawna | Robustness 30, Architecture 20 | R1, C19 | **1** |
-| W2 | Dopisanie SIG-0002 (LangChain `lc`, CVE-2025-68664) do feedu → blokada bez restartu, `selftest` od razu ma 2 nowe przypadki | Robustness 30, Tests 15–20 | R4, R6 | **2** |
+| W2 | Dopisanie SIG-0002 (LangChain `lc`, CVE-2025-68664) do feedu → blokada bez restartu, `selftest` od razu ma 2 nowe przypadki | Robustness 30, Tests 15-20 | R4, R6 | **2** |
 | W3 | Agent w pętli (20 identycznych wywołań, C16) zatrzymany; wskaźnik budżetu agenta (także koszt compute lokalnego, 01 §4 #4) dochodzi do limitu | Reporting 20, Robustness 30 | R3 | **3** |
-| W4 | `selftest --target` → tabela per kontrola (pozytywy/negatywy, p50/p95) + garak przed/po proxy (03 §3) | Tests 15–20, Reporting 20 | R6 | **4** |
+| W4 | `selftest --target` → tabela per kontrola (pozytywy/negatywy, p50/p95) + garak przed/po proxy (03 §3) | Tests 15-20, Reporting 20 | R6 | **4** |
 | W5 | Zatrzymanie Ollamy w trakcie demo → kontrole semantyczne fail-closed, deterministyczne działają, dashboard pokazuje zdrowie detektorów | Robustness 30, Architecture 20 | C21 | **5** |
 
-Polska parafraza injection w wyniku narzędzia (03 §4 #11–12) wpleciona w W1 lub W5, bez osobnego slotu.
+Polska parafraza injection w wyniku narzędzia (03 §4 #11-12) wpleciona w W1 lub W5, bez osobnego slotu.
 
 ## 4. Dashboard i raportowanie (20%)
 
 | Element | Zarząd | Zespół bezpieczeństwa |
 |---|---|---|
 | Postawa | wynik pokrycia: % kontrol OWASP/ASI włączonych i przetestowanych | macierz kontrola × tag OWASP/ASI/ATLAS × status testu |
-| Zagrożenia | liczba BLOCK/REDACT w czasie, top 5 kategorii | żywy feed decyzji: agent, `control_id`, fragment po redakcji, wersja polityki/feedu |
+| Zagrożenia | liczba `block`/`redact` w czasie, top 5 kategorii | żywy feed decyzji: agent, `control_id`, fragment po redakcji, wersja polityki/feedu |
 | Budżety | wydatki per agent/model vs limit (API zewn. + compute lokalny), prognoza wyczerpania | odrzucenia budżetowe i pętle per agent |
 | Wydajność | narzut proxy p95 | opóźnienie per etap pipeline'u, timeouty i `on_error` per detektor |
 | Zmiany | ostatnia zmiana polityki (kto/kiedy) | dziennik zmian polityki i feedu z diffem i hashem; `feed_rejected`, `policy_rejected` |
 | Zaufanie | wynik ostatniego `selftest` | eksport JSONL/CSV, weryfikacja łańcucha hashy (C20) |
 
-**Technologia (ranking):** 1) jedna strona HTML serwowana przez FastAPI + SSE, czyta tylko porty metryk/audytu (PLAN §4) — zero dodatkowego procesu `[INFERENCE]`; 2) Streamlit — szybki, ale osobny proces; 3) Grafana — mocna dla skalowalności, za ciężka na 24 h.
-**Niezgodność z PLAN:** dashboard jest w F5. Proponuję minimalny feed decyzji już w drafcie 20:00, bo jury przegląda dashboard i logi (spec §5).
+**Technologia (ranking):**
+1. Jedna strona HTML serwowana przez FastAPI + SSE. Czyta tylko porty metryk/audytu (PLAN §4). Nie potrzebuje dodatkowego procesu `[INFERENCE]`.
+2. Streamlit: szybki, ale to osobny proces.
+3. Grafana: mocna dla skalowalności, za ciężka na 24 h.
+
+**Niezgodność z PLAN:** dashboard jest w F5. Proponuję minimalny feed decyzji już w drafcie 20:00, bo jury przegląda dashboard i dziennik audytu (spec §5).
 
 ## 5. Draft 20:00 i pitch
 
-**Draft musi pokazać** (zawartość nieznana, PLAN §10 — przygotowujemy pełną listę):
+**Draft musi pokazać** (zawartość nieznana, PLAN §10; przygotowujemy pełną listę):
 1. README: positioning statement, `docker compose up` / `uv run`, jak podpiąć agenta zmianą `base_url`.
 2. Diagram architektury (PLAN §3) + tabela kontroli z tagami OWASP (podzbiór P0 z 04 §4).
-3. Działające proxy: C01, C02, C04, C05, C15–C17, hot reload z ostatnią poprawną.
+3. Działające proxy: C01, C02, C04, C05, C15-C17, przeładowanie na żywo z ostatnią poprawną.
 4. `selftest` z tabelą wyników + `config/policy.strict.yaml` i `policy.lenient.yaml`.
 5. Audyt JSONL i minimalna strona feedu decyzji.
 6. Zrzut ekranu lub GIF z W1.
 
-**Niezgodność z PLAN F0:** spike modeli semantycznych nie może blokować szkieletu — robimy go równolegle, a draft opieramy na kontrolach deterministycznych.
+**Niezgodność z PLAN F0:** spike modeli semantycznych nie może blokować szkieletu. Robimy go równolegle, a draft opieramy na kontrolach deterministycznych.
 
 **Pitch (≤10 slajdów):**
 1. Problem: agenci w banku = nowa powierzchnia ataku (lethal trifecta, 04 §3).
 2. Positioning statement + hasło „Każda decyzja ma paragon”.
 3. Architektura: porty, pipeline tanie→drogie, fail-closed.
-4. Polityka jako kontrakt: progi block/redact, budżety, hot reload (W1).
+4. Polityka jako kontrakt: progi block/redact, budżety, przeładowanie na żywo (W1).
 5. Warstwy obrony: det + sem + sygnatury, mapa OWASP/ASI.
 6. Historyczne ataki: feed z CVE (W2).
 7. Budżety i pętle agentów (W3).

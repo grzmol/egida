@@ -5,21 +5,21 @@
 
 ## Kontekst
 
-Zadanie wymaga kontroli deterministycznych i semantycznych, budżetów, wykrywania znanych ataków, raportowania i testów. Jury zmienia konfigurację na żywo i sprawdza architekturę (20% oceny). Projekt będzie rozszerzany: kolejne kontrole, protokoły (MCP, agent↔agent), magazyny danych. Większość kodu powstanie z pomocą AI, która bez wyraźnych granic miesza logikę z frameworkiem.
+Zadanie wymaga kontroli deterministycznych i semantycznych, budżetów, wykrywania znanych ataków, raportowania i testów. Jury zmienia konfigurację na żywo i sprawdza architekturę (20% oceny). Projekt będzie rozszerzany: kolejne kontrole, protokoły (MCP, agent-agent), magazyny danych. Większość kodu powstanie z pomocą AI, która bez wyraźnych granic miesza logikę z frameworkiem.
 
 ## Decyzja
 
 - Rdzeń `core/` zawiera model domeny (`Interaction`, `Finding`, `Decision`, `Policy`) i pipeline. Nie importuje frameworków, klientów HTTP, plików ani modeli.
 - Świat zewnętrzny wyłącznie przez porty (`typing.Protocol`): `Detector`, `PolicySource`, `ModelClient`, `BudgetStore`, `AuditSink`, `SignatureFeed`, `Clock`.
-- Pipeline o stałej kolejności: tożsamość i dostęp → rezerwacja budżetu → detektory wejścia → wywołanie modelu → detektory wyjścia → rozliczenie budżetu → agregacja decyzji → audyt.
+- Pipeline ma stałą kolejność. Etapy: tożsamość i dostęp → rezerwacja budżetu → detektory wejścia → wywołanie modelu → detektory wyjścia → rozliczenie budżetu → agregacja decyzji → audyt.
 - Kontrole to implementacje `Detector`, rejestrowane i parametryzowane polityką. Nowa kontrola nie zmienia pipeline'u.
 - Adaptery tworzone tylko w `app.py`.
 - Granice egzekwuje `import-linter` w `make check`.
 
 ## Rozważane opcje
 
-- **Middleware frameworka (np. łańcuch middleware FastAPI)** — szybki start, ale logika związana z HTTP; MCP i agent↔agent wymagałyby duplikacji.
-- **Gotowy gateway LLM z wtyczkami** — mniej kodu, ale architektura i guardrails byłyby cudze, a to one są oceniane; ryzyko licencyjne.
+- **Middleware frameworka (np. łańcuch middleware FastAPI)**: szybki start, ale logika związana z HTTP; MCP i agent-agent wymagałyby duplikacji.
+- **Gotowe proxy LLM z wtyczkami**: mniej kodu, ale architektura i guardrails byłyby cudze, a to one są oceniane; ryzyko licencyjne.
 
 ## Konsekwencje
 

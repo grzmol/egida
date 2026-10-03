@@ -15,7 +15,7 @@ import hashlib
 import json
 import math
 import shutil
-import subprocess  # noqa: S404 — git metadata only
+import subprocess  # noqa: S404 (git metadata only)
 import sys
 import time
 from collections import Counter

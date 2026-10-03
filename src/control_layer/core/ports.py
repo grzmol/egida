@@ -1,6 +1,6 @@
 """Ports: the only way core talks to the outside world (ADR-0001). Adapters implement them.
 
-Frozen contract v1 — changes need an announcement (docs/WORKPLAN.md) and an ADR.
+Frozen contract v1: changes need an announcement (docs/WORKPLAN.md) and an ADR.
 """
 
 from __future__ import annotations
@@ -150,7 +150,7 @@ class BudgetRequest:
     limits: BudgetLimits
     est_tokens: int
     est_cost: float
-    fingerprint: str  # sha256 of canonical (model, messages) — loop detection
+    fingerprint: str  # sha256 of canonical (model, messages), for loop detection
     now: float  # clock.monotonic()
 
 

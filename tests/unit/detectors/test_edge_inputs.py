@@ -1,4 +1,4 @@
-"""B9 audit D1–D8: edge inputs against the detector contract (docs/tasks/sebastian/B9 §3).
+"""B9 audit D1-D8: edge inputs against the detector contract (docs/tasks/sebastian/B9 §3).
 
 Every REGISTRY detector × edge input: no exception, faster than the control's policy timeout,
 findings and spans that keep the port contract, redactions that apply cleanly.

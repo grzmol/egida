@@ -37,9 +37,9 @@
 </head>
 <body>
 <header>
-  <h1>AI Control Layer — Operations</h1>
+  <h1>AI Control Layer: Operations</h1>
   <div id="policy" class="muted">Policy: loading…</div>
-  <div id="offline" class="banner red" role="alert">Proxy unreachable — data below is stale.</div>
+  <div id="offline" class="banner red" role="alert">Proxy unreachable; data below is stale.</div>
   <div id="rejected" class="banner red" role="alert"></div>
   <div id="weakened" class="banner yellow" role="status"></div>
 </header>
@@ -49,9 +49,9 @@
     <div class="card"><div class="muted">Blocked</div><div class="kpi d-block" id="k-block">0%</div></div>
     <div class="card"><div class="muted">Redacted</div><div class="kpi d-redact" id="k-redact">0%</div></div>
     <div class="card"><div class="muted">Control errors</div><div class="kpi" id="k-errors">0</div></div>
-    <div class="card"><div class="muted">Latency p50 / p95</div><div class="kpi" id="k-latency">–</div></div>
+    <div class="card"><div class="muted">Latency p50 / p95</div><div class="kpi" id="k-latency">-</div></div>
     <div class="card"><div class="muted">Total cost</div><div class="kpi" id="k-cost">0</div></div>
-    <div class="card"><div class="muted">Selftest</div><div class="kpi" id="k-selftest">–</div></div>
+    <div class="card"><div class="muted">Selftest</div><div class="kpi" id="k-selftest">-</div></div>
   </div>
 
   <section aria-labelledby="h-controls">
@@ -86,7 +86,7 @@
 
   <section aria-labelledby="h-evidence">
     <h2 id="h-evidence">Evidence (offline runs)</h2>
-    <div id="ev-empty" class="muted">No evidence yet — run <code>scripts/redteam.py</code> and <code>scripts/eval_fpfn.py</code>.</div>
+    <div id="ev-empty" class="muted">No evidence yet: run <code>scripts/redteam.py</code> and <code>scripts/eval_fpfn.py</code>.</div>
     <div id="ev-stale" class="banner yellow" role="status"></div>
     <div id="ev-invalid" class="banner red" role="alert"></div>
     <div id="ev-redteam" hidden>
@@ -124,7 +124,7 @@
 const $ = (id) => document.getElementById(id);
 const pct = (n, total) => (total ? (100 * n / total).toFixed(1) : "0.0") + "%";
 const time = (ts) => new Date(ts * 1000).toLocaleTimeString();
-const fmt = (v) => (v === null || v === undefined ? "–" : String(v));
+const fmt = (v) => (v === null || v === undefined ? "-" : String(v));
 
 function row(cells, cls) {
   const tr = document.createElement("tr");
@@ -160,13 +160,13 @@ function renderPolicy(policy) {
   const rejected = $("rejected");
   rejected.style.display = policy.last_error ? "block" : "none";
   rejected.textContent = policy.last_error
-    ? "Policy change REJECTED — previous valid policy still active: " + policy.last_error : "";
+    ? "Policy change REJECTED; previous valid policy still active: " + policy.last_error : "";
   const active = new Set(policy.controls.filter((c) => c.enabled).map((c) => c.kind));
   const missing = policy.registered_kinds.filter((kind) => !active.has(kind));
   const weakened = $("weakened");
   weakened.style.display = missing.length ? "block" : "none";
   weakened.textContent = missing.length
-    ? "Posture weakened — controls disabled or removed: " + missing.join(", ") : "";
+    ? "Posture weakened: controls disabled or removed: " + missing.join(", ") : "";
 }
 
 function renderStats(stats, policy) {
@@ -177,7 +177,7 @@ function renderStats(stats, policy) {
   const errors = Object.values(stats.controls).reduce((sum, c) => sum + c.errors, 0);
   $("k-errors").textContent = errors + " · upstream " + stats.upstream_errors;
   const total = stats.latency_ms.total;
-  $("k-latency").textContent = total ? total.p50.toFixed(0) + " / " + total.p95.toFixed(0) + " ms" : "–";
+  $("k-latency").textContent = total ? total.p50.toFixed(0) + " / " + total.p95.toFixed(0) + " ms" : "-";
   $("k-cost").textContent = Object.values(stats.cost).reduce((a, b) => a + b, 0).toFixed(4);
   const selftest = stats.selftest;
   $("k-selftest").textContent = selftest && !selftest.error
@@ -232,8 +232,8 @@ function renderEvents(events) {
 }
 
 
-const pctOf = (v) => (v === null || v === undefined ? "–" : (100 * v).toFixed(1) + "%");
-const ci = (pair) => (pair ? " [" + pctOf(pair[0]) + "–" + pctOf(pair[1]) + "]" : "");
+const pctOf = (v) => (v === null || v === undefined ? "-" : (100 * v).toFixed(1) + "%");
+const ci = (pair) => (pair ? " [" + pctOf(pair[0]) + "-" + pctOf(pair[1]) + "]" : "");
 
 function renderEvidence(stats, policy) {
   const red = stats.redteam, ev = stats.eval;
@@ -249,7 +249,7 @@ function renderEvidence(stats, policy) {
   const stale = policy && measured && measured !== policy.sha256;
   $("ev-stale").style.display = stale ? "block" : "none";
   $("ev-stale").textContent = stale
-    ? "Stale evidence — measured on policy " + measured.slice(0, 12) + ", active " + policy.sha256.slice(0, 12) : "";
+    ? "Stale evidence: measured on policy " + measured.slice(0, 12) + ", active " + policy.sha256.slice(0, 12) : "";
 
   $("ev-redteam").hidden = !(red && !red.error);
   if (red && !red.error) {
@@ -267,8 +267,8 @@ function renderEvidence(stats, policy) {
     const files = $("ev-files");
     files.replaceChildren();
     for (const [name, m] of Object.entries(ev.files)) {
-      files.appendChild(row([[name], [m.n], [m.tpr === null ? "–" : pctOf(m.tpr) + ci(m.tpr_ci95)],
-        [m.fpr === null ? "–" : pctOf(m.fpr) + ci(m.fpr_ci95)], [pctOf(m.precision)], [m.redact_on_benign]]));
+      files.appendChild(row([[name], [m.n], [m.tpr === null ? "-" : pctOf(m.tpr) + ci(m.tpr_ci95)],
+        [m.fpr === null ? "-" : pctOf(m.fpr) + ci(m.fpr_ci95)], [pctOf(m.precision)], [m.redact_on_benign]]));
     }
     const controls = $("ev-controls");
     controls.replaceChildren();

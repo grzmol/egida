@@ -1,4 +1,4 @@
-# Eksploracja i brainstorming — synteza
+# Eksploracja i brainstorming: synteza
 
 Stan: 2026-10-03, ok. 12:10. Siedmiu agentów w dwóch falach: najpierw przegląd istniejących narzędzi i zagrożeń, potem brainstorming z trzech perspektyw. Ten plik zbiera wnioski i rozbieżności z [PLAN](../PLAN.md) i [ADR](../adr/README.md). Szczegóły i źródła (URL-e, licencje) są w plikach poniżej.
 
@@ -7,28 +7,37 @@ Stan: 2026-10-03, ok. 12:10. Siedmiu agentów w dwóch falach: najpierw przeglą
 | [01-gatewaye-i-proxy.md](01-gatewaye-i-proxy.md) | 1 | 22 gatewaye i frameworki OSS + 5 komercyjnych; `competitive-landscape` |
 | [02-detektory-i-modele.md](02-detektory-i-modele.md) | 1 | modele guard, PII, sekrety, supply chain; pomiar na M5 Pro |
 | [03-testy-i-red-teaming.md](03-testy-i-red-teaming.md) | 1 | garak, promptfoo, zbiory danych, projekt testów; `llm-evaluation` |
-| [04-zagrozenia-i-katalog-kontroli.md](04-zagrozenia-i-katalog-kontroli.md) | 1 | STRIDE, drzewo ataku, katalog C01–C24, format feedu sygnatur; `stride-analysis-patterns`, `attack-tree-construction` |
-| [10-brainstorm-jury-i-strategia.md](10-brainstorm-jury-i-strategia.md) | 2 | sędzia i strateg: wyróżnik, momenty „wow”, pitch; `competitive-landscape` |
+| [04-zagrozenia-i-katalog-kontroli.md](04-zagrozenia-i-katalog-kontroli.md) | 1 | STRIDE, drzewo ataku, katalog C01-C24, format feedu sygnatur; `stride-analysis-patterns`, `attack-tree-construction` |
+| [10-brainstorm-jury-i-strategia.md](10-brainstorm-jury-i-strategia.md) | 2 | jury i strateg: wyróżnik, momenty „wow”, pitch; `competitive-landscape` |
 | [11-brainstorm-red-team.md](11-brainstorm-red-team.md) | 2 | red team jury: 20 ataków, pułapki fałszywych alarmów, 29 przypadków testowych; `attack-tree-construction` |
 | [12-brainstorm-budowa.md](12-brainstorm-budowa.md) | 2 | lead engineer: reuse vs build, kontrakty, harmonogram torów; `lean-build`, `architecture-patterns`, `ai-debt-detector` |
 
 ## 1. Co już istnieje
 
-- **Nikt nie łączy wszystkiego lokalnie i w OSS.** Gatewaye (LiteLLM, Kong, APISIX, Portkey) są mocne w routingu i limitach, ale kontrole semantyczne przekazują do płatnych chmur albo trzymają w wersjach Enterprise (01 §2). Najbliższy naszej wizji jest agentgateway (Rust, Apache-2.0: LLM + MCP + A2A, hot reload, CEL), ale nie ma lokalnej semantyki ani sygnatur ataków (01 §2).
+- **Nikt nie łączy wszystkiego lokalnie i w OSS.**
+  - Gatewaye (LiteLLM, Kong, APISIX, Portkey) są mocne w routingu i limitach (01 §2).
+  - Kontrole semantyczne przekazują do płatnych chmur albo trzymają w wersjach Enterprise (01 §2).
+  - Najbliższy naszej wizji jest agentgateway (Rust, Apache-2.0: LLM + MCP + A2A, przeładowanie na żywo, CEL). Nie ma lokalnej semantyki ani sygnatur ataków (01 §2).
 - **Część znanych projektów jest martwa.** LLM Guard, Rebuff i TensorZero są zarchiwizowane, a mcp-scan przeszedł do Snyka i wymaga tokenu (01 §1, 02 §3). Bierzemy z nich pomysły, nie zależności.
-- **LiteLLM to punkt odniesienia, ale nie fundament.** Audit logs i guardrails per klucz są w nim płatne, rozliczanie kosztów wymaga Postgresa, a w 2026 r. opublikowano dla niego 17 advisories GHSA (01 §2).
-- **Nasza luka** (01 §4): jedna walidowana polityka (ALLOW/REDACT/BLOCK + budżety + sygnatury) z przeładowaniem bez restartu, lokalna semantyka z jawnym `on_error`, sygnatury znanych ataków, budżet liczony także dla modeli lokalnych, selftest na żywej instancji, audyt i raport w OSS.
+- **LiteLLM to punkt odniesienia, ale nie fundament.** Audit logs i guardrails per klucz są w nim płatne. Rozliczanie kosztów wymaga Postgresa. W 2026 r. opublikowano dla niego 17 advisories GHSA (01 §2).
+- **Nasza luka** (01 §4):
+  - jedna walidowana polityka (`allow`/`redact`/`block` + budżety + sygnatury) z przeładowaniem na żywo;
+  - lokalna semantyka z jawnym `on_error`;
+  - sygnatury znanych ataków;
+  - budżet liczony także dla modeli lokalnych;
+  - selftest na żywej instancji;
+  - audyt i raport w OSS.
 - **Na pitch:** proxy mówi API OpenAI, więc da się je postawić za LiteLLM, Kongiem czy agentgateway. Uzupełniamy routing, nie konkurujemy z nim (01 §5). OWASP Agent Control Standard (2026-09) opisuje dokładnie nasz wzorzec kontroli w hookach (04 §0).
 
-## 2. Reuse vs build — rekomendacja zbiorcza
+## 2. Reuse vs build: rekomendacja zbiorcza
 
 | Komponent | Decyzja | Źródło |
 |---|---|---|
 | Proxy | **budujemy** cienkie FastAPI; nie owijamy LiteLLM ani agentgateway, bo jury ocenia naszą architekturę | 01 §5, 12 §1 |
 | PII | regexy + `python-stdnum` (LGPL-2.1+, sumy kontrolne PESEL/NIP/REGON/IBAN) | 02 §2, 12 §1 |
 | Sekrety | reguły w feedzie sygnatur wzorowane na `gitleaks.toml` (MIT), bez `detect-secrets` | 12 §1 (wbrew 02 §5) |
-| Injection — model | Llama Prompt Guard 2 86M przez ONNX (`onnxruntime` + `tokenizers`, bez torch), ok. 110 ms na CPU; licencja Llama 4 Community, w README napis „Built with Llama” | 02 §1b, 12 §1 |
-| Injection — heurystyki | własna normalizacja (NFKC, zero-width, confusables, dekodowanie base64) + ok. 30 fraz EN/PL | 11 §6, 04 C06 |
+| Injection: model | Llama Prompt Guard 2 86M przez ONNX (`onnxruntime` + `tokenizers`, bez torch), ok. 110 ms na CPU; licencja Llama 4 Community, w README napis „Built with Llama” | 02 §1b, 12 §1 |
+| Injection: heurystyki | własna normalizacja (NFKC, zero-width, confusables, dekodowanie base64) + ok. 30 fraz EN/PL | 11 §6, 04 C06 |
 | Guard LLM (treść szkodliwa) | `llama-guard3:1b` w Ollamie, zapasowo `granite3-guardian:2b`; po drafcie | 02 §5, 12 §3 |
 | Sygnatury znanych ataków | własny silnik YAML w stylu Sigma/YARA z testami w regule; pickle przez stdlib `pickletools`; `picklescan`/`modelscan` tylko do plików artefaktów | 04 §5, 12 §1 |
 | Budżety | in-memory, ceny w polityce (bez JSON-a z LiteLLM) | 12 §1 (wbrew 01 §5) |
@@ -65,24 +74,29 @@ Stan: 2026-10-03, ok. 12:10. Siedmiu agentów w dwóch falach: najpierw przeglą
 Łączy red team (11 §3), lead engineera (12 §3) i strategię (10 §5):
 
 - Proxy `/v1/chat/completions` (+ `/v1/models`) z buforowanym streamingiem, klucz API → agent, allowlista modeli.
-- Polityka v1 z przeładowaniem bez restartu i ostatnią poprawną wersją; warianty `strict`/`lenient`.
+- Polityka v1 z przeładowaniem na żywo i ostatnią poprawną wersją; warianty `strict`/`lenient`.
 - Wspólna normalizacja + C04 PII (EN/PL z sumami kontrolnymi), C05 sekrety, C06 heurystyki injection EN/PL.
-- C15–C17: budżety tokenów i kosztu, wykrywanie pętli, limity rozmiaru i `max_tokens`; C21 fail-closed.
+- C15-C17: budżety tokenów i kosztu, wykrywanie pętli, limity rozmiaru i `max_tokens`; C21 fail-closed.
 - Audyt JSONL (zredagowany, z łańcuchem hashy), minimalny dashboard, eksport CSV.
 - ~30 przypadków w `tests/cases/*.yaml` (negatywy i pozytywy), `make selftest` na żywej instancji.
 - README z positioning statement i instrukcją podpięcia agenta (zmiana `base_url`), diagram architektury, `docs/ai-usage/`.
 - Opcjonalnie: PG2-86M, jeśli tor E jest zielony do 18:00. Freeze 19:00, zgłoszenie 19:45.
 
-**Po drafcie do 4.10 11:00:** feed sygnatur z przeładowaniem bez restartu i testami w regułach (C10, C11, C18), kontrole narzędzi (C03, C09), guard LLM, C14 i C22, p50/p95 i `/metrics`, demo agent z narzędziami, garak przed/po proxy, Compose na czystej maszynie, audyt długu, slajdy (12 §3).
+**Po drafcie do 4.10 11:00** (12 §3):
+- feed sygnatur z przeładowaniem na żywo i testami w regułach feedu (C10, C11, C18);
+- kontrole narzędzi (C03, C09), guard LLM, C14 i C22;
+- p50/p95 i `/metrics`;
+- demo agent z narzędziami, garak przed/po proxy;
+- Compose na czystej maszynie, audyt długu, slajdy.
 
 ## 6. Momenty „wow” w demo
 
 | # | Moment | Kryteria |
 |---|---|---|
 | W1 | Edycja polityki na żywo → ten sam prompt dostaje inną decyzję; zły YAML odrzucony | Robustness 30, Architecture 20 |
-| W2 | Nowa sygnatura (CVE-2025-68664) w feedzie → blokada bez restartu, selftest od razu ma nowe przypadki | Robustness 30, Testy 15–20 |
+| W2 | Nowa sygnatura (CVE-2025-68664) w feedzie → blokada bez restartu, selftest od razu ma nowe przypadki | Robustness 30, Testy 15-20 |
 | W3 | Agent w pętli zatrzymany, wskaźnik budżetu (także koszt lokalnego compute) dochodzi do limitu | Reporting 20, Robustness 30 |
-| W4 | Selftest → tabela per kontrola + garak przed/po proxy | Testy 15–20, Reporting 20 |
+| W4 | Selftest → tabela per kontrola + garak przed/po proxy | Testy 15-20, Reporting 20 |
 | W5 | Zatrzymanie Ollamy → kontrole semantyczne fail-closed, deterministyczne dalej działają | Robustness 30, Architecture 20 |
 
 Źródło: 10 §3.
@@ -91,7 +105,7 @@ Stan: 2026-10-03, ok. 12:10. Siedmiu agentów w dwóch falach: najpierw przeglą
 
 1. Akceptacja Z-1 (stack i runtime) i Z-2 (zbiorczy ADR-0005).
 2. Akceptacja zmian Z-3…Z-9 w planie.
-3. Podział torów A–F z 12 §3 (integrator A jako jedyny właściciel `core/` i `app.py`).
+3. Podział torów A-F z 12 §3 (integrator A jako jedyny właściciel `core/` i `app.py`).
 4. Instalacja Ollamy i pobranie modeli od razu, równolegle z I0 (`ollama` nie jest jeszcze zainstalowana).
 5. Pytanie do organizatorów: co musi zawierać draft o 20:00.
 

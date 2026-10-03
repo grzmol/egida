@@ -17,7 +17,7 @@ import json
 import os
 import re
 import shutil
-import subprocess  # noqa: S404 — runs garak via uvx with a fixed argument list
+import subprocess  # noqa: S404 (runs garak via uvx with a fixed argument list)
 import sys
 from pathlib import Path
 from typing import Any

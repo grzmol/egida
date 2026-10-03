@@ -341,7 +341,7 @@ class Pipeline:
                     apply_redactions(interaction, finding.spans)  # validates targets and ranges
         except TimeoutError:
             error = ControlError(control.id, "timeout", f"no result within {timeout_ms} ms")
-        except Exception as exc:  # noqa: BLE001 — detector boundary (ADR-0004): never fail open
+        except Exception as exc:  # noqa: BLE001 (detector boundary, ADR-0004: never fail open)
             error = ControlError(control.id, "exception", f"{type(exc).__name__}: {exc}")
 
         if error is not None:
