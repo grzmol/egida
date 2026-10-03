@@ -38,6 +38,21 @@ RULES: tuple[tuple[str, float, re.Pattern[str]], ...] = tuple(
         ("openai_key", 1.0, r"\bsk-(?:proj-|ant-)?[A-Za-z0-9_-]{20,}"),
         ("stripe_key", 1.0, r"\b[rs]k_live_[A-Za-z0-9]{20,}"),
         ("google_api_key", 1.0, r"\bAIza[0-9A-Za-z_-]{35}\b"),
+        ("gitlab_token", 1.0, r"\bglpat-[A-Za-z0-9_-]{20}\b"),
+        ("npm_token", 1.0, r"\bnpm_[A-Za-z0-9]{36}\b"),
+        ("sendgrid_key", 1.0, r"\bSG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}\b"),
+        (
+            "aws_secret_key",
+            1.0,
+            r"(?i)(?<![a-z0-9])aws_?secret(_access)?_?key\b\s*[:=]\s*['\"]?[A-Za-z0-9/+=]{40}",
+        ),
+        ("bearer_token", 0.9, r"(?i)\bauthorization:\s*bearer\s+[A-Za-z0-9._~+/=-]{16,}"),
+        (
+            "keyed_secret",
+            0.8,
+            r"(?i)(?<![a-z0-9])(password|passwd|pwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token)"
+            r"\b\s*[:=]\s*['\"]?[^\s'\"]{8,}",
+        ),
     )
 )
 ENTROPY_SCORE = 0.6
@@ -100,8 +115,16 @@ def _scan(control_id: str, texts: list[tuple[str, str]], params: SecretsParams) 
     for target, text in texts:
         found = find_secrets(text, params.rules, params.entropy_threshold, params.entropy_min_len)
         hits += [(target, label, score, start, end) for label, score, start, end in found]
-    evidence = [f"{label}@{target}" for target, label, *_ in hits]
-    return span_finding(control_id, Category.SECRET, hits, TAGS, evidence)
+    # Entropy-only hits are a separate, weaker finding: the policy threshold decides them on
+    # their own, so a real key in the same message does not drag them into redaction.
+    findings: list[Finding] = []
+    for group in (
+        [h for h in hits if h[1] != "high_entropy"],
+        [h for h in hits if h[1] == "high_entropy"],
+    ):
+        evidence = [f"{label}@{target}" for target, label, *_ in group]
+        findings += span_finding(control_id, Category.SECRET, group, TAGS, evidence)
+    return findings
 
 
 class SecretsDetector:
