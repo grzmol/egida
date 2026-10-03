@@ -1,6 +1,6 @@
-# Raport QA — przed freeze draftu (powtórka na tagu `draft-20` o 19:00)
+# Raport QA — przed freeze draftu i powtórka na tagu `draft-20`
 
-**Data i godzina audytu:** 2026-10-03, ok. 15:45 (przed freeze 19:00; wyniki dotyczą ówczesnego `main`, nie tagu `draft-20`)  
+**Data i godzina audytu:** 2026-10-03, ok. 15:45 (sekcja 1: ówczesny `main`, historia) i ok. 16:40–16:50 (sekcja 4: powtórka na tagu `draft-20` = `26e0e15`)  
 **Audytor:** Kamil (Dev C — rola „Pierwszego Jurora”)  
 **Środowisko:** Świeży klon repozytorium (`/tmp/froggers-qa`)  
 **Cel:** Weryfikacja odtwarzalności rozwiązania wyłącznie na podstawie instrukcji z `README.md` przed zgłoszeniem draftu o 19:45.
@@ -40,6 +40,21 @@
 - [x] Świeży klon przechodzi procedurę weryfikacyjną (10/12 kroków w pełni OK, 2 drobne uwagi zgłoszone właścicielom).
 - [x] Pliki zgłoszenia `docs/submission/draft.md` oraz `docs/pitch/draft-slides.pdf` gotowe.
 - [x] Pliki zgłoszenia finałowego `docs/submission/final.md`, `docs/pitch/slides.pdf` (10 slajdów) i `docs/pitch/speaker-notes.md` gotowe.
-- [ ] Powtórka QA na tagu `draft-20` (19:00).
-- [ ] Oznaczenie tagiem `draft-20` (oczekuje na Grzegorza przed 19:45).
+- [x] Powtórka QA na tagu `draft-20` — sekcja 4.
+- [x] Oznaczenie tagiem `draft-20` (`26e0e15`, ten sam commit co `freeze-0830`).
+
+---
+
+## 4. Powtórka na tagu `draft-20` (= `freeze-0830` = `26e0e15`, ok. 16:40–16:50)
+
+Świeże klony tagu, bez Ollamy i modeli ONNX, przypadki live z atrapą upstreamu. Szczegóły kroków: `docs/qa/final.md`.
+
+| Krok | Wynik | Status |
+|---|---|---|
+| `make check` | 930 passed, 76 skipped, 0 failed; ruff, mypy, lint-imports OK; 3 przebiegi identyczne | **OK** (ERR-01 nie występuje) |
+| `make selftest` (atrapa upstreamu) | 184 passed, 56 skipped, 0 failed | **OK** (ERR-02: bez Ollamy wystarcza atrapa upstreamu) |
+| `make verify-audit` | `OK 360 events` | **OK** |
+| W1–W5, README, dashboard, Compose (statycznie), regresje bezpieczeństwa 18/18, sekrety w historii | wszystkie zielone | **OK** |
+
+Wynik powtórki: wszystkie bramki A8 zielone; uwagi nieblokujące w `docs/qa/final.md`, sekcja 2.
 
