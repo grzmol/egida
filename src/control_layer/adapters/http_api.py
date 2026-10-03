@@ -41,6 +41,7 @@ class Runtime:
 
     pipeline: Pipeline
     policy: PolicySource
+    registered_kinds: tuple[str, ...]
 
 
 # --- request schema (boundary validation) ------------------------------------------
@@ -191,6 +192,43 @@ async def healthz(request: Request) -> dict[str, object]:
         "status": "ok",
         "policy_version": snapshot.policy.version,
         "policy_sha256": snapshot.sha256,
+    }
+
+
+@router.get("/api/policy")
+async def policy_status(request: Request) -> dict[str, object]:
+    """Operator view of the active policy (no agent key; the proxy listens on localhost)."""
+    runtime = _runtime(request)
+    snapshot = runtime.policy.current()
+    policy = snapshot.policy
+    return {
+        "version": policy.version,
+        "sha256": snapshot.sha256,
+        "loaded_at": snapshot.loaded_at,
+        "source": snapshot.source,
+        "last_error": runtime.policy.last_error(),
+        "controls": [
+            {
+                "id": c.id,
+                "kind": c.kind,
+                "enabled": c.enabled,
+                "sides": [s.value for s in c.sides],
+                "action": c.action.value,
+                "threshold": c.threshold,
+                "on_error": c.on_error or policy.defaults.on_error,
+            }
+            for c in policy.controls
+        ],
+        "registered_kinds": list(runtime.registered_kinds),
+        "agents": [
+            {
+                "id": agent_id,
+                "allowed_models": list(a.allowed_models),
+                "allowed_tools": list(a.allowed_tools),
+                "budget": a.budget,
+            }
+            for agent_id, a in policy.agents.items()
+        ],
     }
 
 
