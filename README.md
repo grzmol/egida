@@ -35,6 +35,8 @@ curl -s http://127.0.0.1:8080/v1/chat/completions -H 'Authorization: Bearer sk-d
 
 **Reporting:** `http://127.0.0.1:8080/dashboard`, `GET /api/stats`, audit export `GET /api/audit/export?format=csv|jsonl`, audit integrity `make verify-audit`.
 
+**Telemetry and performance:** `curl -s http://127.0.0.1:8080/metrics` (Prometheus text format, seconds: p50/p95 per stage plus decision, finding and audit-event counters) and `curl -s http://127.0.0.1:8080/api/telemetry` (JSON `telemetry.v1`, milliseconds, used by the dashboard). Stages are the pipeline's `latency_ms` keys (`total`, `upstream` = model call, `access`, `input:<control>`, …) plus the synthetic `overhead` = `total − upstream`, i.e. the time the control layer adds; for a request blocked before the model `overhead == total`. Percentiles cover the last 1024 samples per stage, counts are cumulative; both live in process memory and reset on restart. `make bench` (key `sk-bench-agent`, own budget) measures p50/p95/RPS against a running instance and stores them with the server's telemetry in `var/bench.json`. Audit chain: `GET /api/audit/verify` → 200 `{"ok": true, "events", "last_seq", "head_hash"}` or 409 with `error.{line, seq, kind, message}`; `make verify-audit` exits 0 (intact), 1 (broken, prints the first bad line) or 2 (file unreadable). The chain is not anchored: whoever can write the file can recompute it, so record `head_hash` elsewhere if that matters.
+
 **Tests:** `make check` (lint, types, architecture boundaries, unit + case tests offline) · `make selftest` (the same YAML cases against the running instance, JUnit in `var/selftest.xml`).
 
 Licences: [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md). Prompt Guard 2 detector: **Built with Llama** (Llama 4 Community License).

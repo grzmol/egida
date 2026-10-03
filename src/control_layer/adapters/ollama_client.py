@@ -90,7 +90,7 @@ def _parse(data: Any) -> ModelResult:
             ToolCall(
                 id=str(c.get("id", "")),
                 name=str(c["function"]["name"]),
-                arguments=str(c["function"].get("arguments", "")),
+                arguments=_arguments(c["function"].get("arguments", "")),
             )
             for c in message.get("tool_calls") or ()
         )
@@ -109,3 +109,8 @@ def _parse(data: Any) -> ModelResult:
         )
     except (KeyError, IndexError, TypeError, ValueError) as exc:
         raise UpstreamError(f"unexpected upstream response shape: {exc!r}") from exc
+
+
+def _arguments(value: Any) -> str:
+    """The contract keeps raw JSON text; some servers send arguments as an object."""
+    return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)

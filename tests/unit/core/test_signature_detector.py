@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import copy
+import dataclasses
 from pathlib import Path
 from typing import Any
 
@@ -11,8 +13,17 @@ from pydantic import BaseModel, ConfigDict
 
 from control_layer.adapters.budget_memory import InMemoryBudgetStore
 from control_layer.adapters.fake_model import FakeModelClient
+from control_layer.adapters.tool_pins_memory import InMemoryToolPinStore
 from control_layer.core.audit import AuditEvent
-from control_layer.core.models import Action, Category, Interaction, Message, Side, ToolCall
+from control_layer.core.models import (
+    Action,
+    Category,
+    Interaction,
+    Message,
+    Side,
+    ToolCall,
+    ToolDef,
+)
 from control_layer.core.pipeline import Pipeline
 from control_layer.core.policy import build_policy
 from control_layer.core.ports import FeedSnapshot, PolicySnapshot, ScanContext
@@ -92,6 +103,8 @@ class Sink:
 
 class OnePolicy:
     def __init__(self, policy_dict: dict[str, Any], controls: list[dict[str, Any]]) -> None:
+        policy_dict = copy.deepcopy(policy_dict)
+        policy_dict["agents"]["demo-agent"]["allowed_tools"] = ["*"]  # C03 is not under test here
         policy = build_policy({**policy_dict, "controls": controls}, {"signature": SignatureParams})
         self._snapshot = PolicySnapshot(policy, "a" * 64, 0.0, "test")
 
@@ -123,6 +136,7 @@ def _pipeline(
         budgets=InMemoryBudgetStore(),
         audit=sink,
         clock=_Clock(),
+        tool_pins=InMemoryToolPinStore(),
         feed=feed,
     )
     return pipeline, sink
@@ -146,7 +160,9 @@ async def test_reverse_shell_in_model_tool_call_is_blocked(policy_dict: dict[str
             )
 
     pipeline, sink = _pipeline(policy_dict, ToolCallingModel())
-    result = await pipeline.run(_chat(Message("user", "list the docs")))
+    run_tool = ToolDef("run", "Runs a shell command.", "{}")
+    request = dataclasses.replace(_chat(Message("user", "list the docs")), tools=(run_tool,))
+    result = await pipeline.run(request)
     assert result.decision.action is Action.BLOCK
     assert result.decision.blocked_by == "signatures"
     (decision,) = [e for e in sink.events if e.type == "decision"]

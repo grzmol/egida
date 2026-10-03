@@ -19,7 +19,7 @@ class FakeModelClient:
 
     def __init__(
         self,
-        reply: str | Callable[[Interaction], str] = "OK",
+        reply: str | Message | Callable[[Interaction], str | Message] = "OK",
         usage: Usage = _DEFAULT_USAGE,
         raise_error: bool = False,
     ) -> None:
@@ -34,11 +34,12 @@ class FakeModelClient:
         self.last_interaction = interaction
         if self._raise_error:
             raise UpstreamError(f"fake upstream failure ({upstream.base_url})")
-        text = self._reply(interaction) if callable(self._reply) else self._reply
+        reply = self._reply(interaction) if callable(self._reply) else self._reply
+        message = reply if isinstance(reply, Message) else Message(role="assistant", content=reply)
         return ModelResult(
-            message=Message(role="assistant", content=text),
+            message=message,
             usage=self._usage,
-            finish_reason="stop",
+            finish_reason="tool_calls" if message.tool_calls else "stop",
         )
 
 

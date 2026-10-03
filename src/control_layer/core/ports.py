@@ -5,7 +5,7 @@ Frozen contract v1 — changes need an announcement (docs/WORKPLAN.md) and an AD
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, Literal, Protocol, runtime_checkable
 
@@ -36,6 +36,7 @@ __all__ = [
     "ScanContext",
     "SignatureFeed",
     "SupportsWarmUp",
+    "ToolPinStore",
 ]
 
 
@@ -169,6 +170,17 @@ class BudgetStore(Protocol):
     async def release(self, reservation_id: str) -> None: ...
 
     def usage(self, agent_id: str) -> BudgetUsage: ...
+
+
+# --- tool pins (C09) ------------------------------------------------------------
+
+
+class ToolPinStore(Protocol):
+    async def pin(self, agent_id: str, digests: Mapping[str, str]) -> dict[str, str]:
+        """digests: tool name -> sha256 of its definition in this request. Atomic, all or
+        nothing: returns {name: pinned digest} for every mismatch and then stores nothing;
+        an empty result means everything matched and new names are now pinned."""
+        ...
 
 
 # --- audit and time -------------------------------------------------------------

@@ -1,4 +1,4 @@
-.PHONY: check test run selftest verify-audit fmt models docs
+.PHONY: check test run selftest verify-audit fmt models docs bench
 
 UV := uv run
 TARGET ?= http://127.0.0.1:8080
@@ -32,3 +32,7 @@ models:
 
 docs:
 	python3 -m http.server --directory site --bind 127.0.0.1 8000
+
+bench:
+	mkdir -p var
+	$(UV) python scripts/bench.py --target $(TARGET) --key sk-bench-agent --out var/bench.json

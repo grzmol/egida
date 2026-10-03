@@ -16,7 +16,7 @@ from control_layer.adapters.audit_jsonl import verify_file
 from control_layer.adapters.fake_model import FakeGuardModelClient, FakeModelClient
 from control_layer.app import Settings, create_app
 from control_layer.core.errors import PolicyError
-from control_layer.core.models import Category, Finding
+from control_layer.core.models import Category, Finding, Message, ToolCall
 from control_layer.core.ports import DetectorDeps, ScanContext
 from control_layer.core.texts import iter_texts
 from control_layer.detectors import REGISTRY
@@ -370,6 +370,42 @@ def test_policy_endpoint_reports_controls_and_kinds(client: TestClient) -> None:
     assert "key_sha256" not in json.dumps(body)
 
 
+def test_telemetry_and_metrics_report_stages_after_a_request(client: TestClient) -> None:
+    assert _chat(client).status_code == 200
+
+    body = client.get("/api/telemetry").json()
+    assert body["schema"] == "telemetry.v1"
+    assert body["requests_total"] == 1
+    stages = {s["stage"]: s for s in body["stages"]}
+    assert stages["total"]["count"] == 1
+    assert {"overhead", "upstream"} <= set(stages)
+
+    resp = client.get("/metrics")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/plain; version=0.0.4")
+    assert 'control_layer_stage_latency_seconds{stage="total",quantile="0.95"}' in resp.text
+    assert 'control_layer_decisions_total{decision="allow"} 1' in resp.text
+
+
+def test_audit_verify_endpoint_reports_tampering(client: TestClient, paths: Settings) -> None:
+    assert _chat(client).status_code == 200
+    ok = client.get("/api/audit/verify")
+    assert ok.status_code == 200
+    assert ok.json()["ok"] is True
+    assert ok.json()["error"] is None
+    assert ok.json()["events"] >= 1
+
+    raw = paths.audit_path.read_bytes()
+    assert b'"decision":"allow"' in raw
+    paths.audit_path.write_bytes(raw.replace(b'"decision":"allow"', b'"decision":"allox"', 1))
+    broken = client.get("/api/audit/verify")
+    assert broken.status_code == 409
+    body = broken.json()
+    assert body["ok"] is False
+    assert body["error"]["kind"] == "hash"
+    assert set(body["error"]) == {"line", "seq", "kind", "message"}
+
+
 @pytest.mark.parametrize("policy_file", sorted(Path("config").glob("policy*.yaml")), ids=str)
 def test_app_starts_with_shipped_policy(policy_file: Path, tmp_path: Path) -> None:
     """Every shipped policy loads with the real detector registry, models present or not."""
@@ -471,3 +507,90 @@ def test_feed_edits_apply_live(tmp_path: Path) -> None:
     feed_events = [e for e in events if e["type"].startswith("feed")]
     assert [e["type"] for e in feed_events] == ["feed_reloaded", "feed_rejected"]
     assert "added=[SIG-0005]" in feed_events[0]["detail"]
+
+
+# --- tools (A6) ----------------------------------------------------------------------------
+
+
+def _tools_client(
+    paths: Settings, policy_dict: dict[str, Any], model: FakeModelClient, allowed: list[str]
+) -> TestClient:
+    policy_dict["agents"]["demo-agent"]["allowed_tools"] = allowed
+    policy_dict["controls"] = []
+    paths.policy_path.write_text(yaml.safe_dump(policy_dict), encoding="utf-8")
+    return TestClient(create_app(paths, model_client=model))
+
+
+SEARCH_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "search_docs",
+        "description": "Searches the docs.",
+        "parameters": {"type": "object", "properties": {"q": {"type": "string"}}},
+    },
+}
+
+
+@pytest.mark.parametrize(
+    ("body", "fragment"),
+    [
+        ({"functions": [{"name": "f"}]}, "use tools/tool_calls"),
+        ({"tools": [{"type": "function", "function": {"name": "a b"}}]}, "tools[0].function.name"),
+        ({"tools": [{"type": "retrieval", "function": {"name": "r"}}]}, "tools[0].type"),
+    ],
+    ids=["legacy-functions", "bad-name", "non-function"],
+)
+def test_unsupported_tool_shapes_are_rejected(
+    client: TestClient, body: dict[str, Any], fragment: str
+) -> None:
+    resp = _chat(client, **body)
+    assert resp.status_code == 400
+    assert fragment in resp.json()["error"]["message"]
+
+
+def test_tools_reach_the_model_with_canonical_parameters(
+    paths: Settings, policy_dict: dict[str, Any]
+) -> None:
+    model = FakeModelClient()
+    with _tools_client(paths, policy_dict, model, ["*"]) as c:
+        assert _chat(c, tools=[SEARCH_TOOL]).headers["X-Control-Decision"] == "allow"
+    assert model.last_interaction is not None
+    (tool,) = model.last_interaction.tools
+    assert tool.parameters_json == '{"properties":{"q":{"type":"string"}},"type":"object"}'
+
+
+def test_model_tool_calls_are_returned_in_openai_shape_also_when_streamed(
+    paths: Settings, policy_dict: dict[str, Any]
+) -> None:
+    call = ToolCall("call_1", "search_docs", '{"q": "budgets"}')
+    model = FakeModelClient(reply=Message("assistant", "", tool_calls=(call,)))
+    with _tools_client(paths, policy_dict, model, ["search_docs"]) as c:
+        body = _chat(c, tools=[SEARCH_TOOL]).json()
+        stream = _chat(c, tools=[SEARCH_TOOL], stream=True).text
+    choice = body["choices"][0]
+    assert choice["finish_reason"] == "tool_calls"
+    assert choice["message"]["content"] is None
+    assert choice["message"]["tool_calls"] == [
+        {
+            "id": "call_1",
+            "type": "function",
+            "function": {"name": "search_docs", "arguments": '{"q": "budgets"}'},
+        }
+    ]
+    chunks = [json.loads(line[6:]) for line in stream.splitlines() if line.startswith("data: {")]
+    deltas = [c["choices"][0]["delta"] for c in chunks]
+    assert deltas[1]["tool_calls"][0]["index"] == 0
+    assert chunks[-1]["choices"][0]["finish_reason"] == "tool_calls"
+    assert stream.rstrip().endswith("data: [DONE]")
+
+
+def test_disallowed_tool_is_a_receipt_not_an_error(
+    paths: Settings, policy_dict: dict[str, Any]
+) -> None:
+    delete = {"type": "function", "function": {"name": "delete_file", "parameters": {}}}
+    with _tools_client(paths, policy_dict, FakeModelClient(), ["search_docs"]) as c:
+        resp = _chat(c, tools=[delete])
+    assert resp.status_code == 200
+    assert resp.json()["choices"][0]["finish_reason"] == "content_filter"
+    assert resp.json()["control_layer"]["blocked_by"] == "access.tool"
+    assert "tool_calls" not in resp.json()["choices"][0]["message"]

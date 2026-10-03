@@ -28,6 +28,8 @@ from control_layer.adapters.metrics_memory import MetricsMemory
 from control_layer.adapters.ollama_client import OllamaClient
 from control_layer.adapters.ollama_guard import OllamaGuardClient
 from control_layer.adapters.policy_file import PolicyFile
+from control_layer.adapters.telemetry import TelemetrySink
+from control_layer.adapters.tool_pins_memory import InMemoryToolPinStore
 from control_layer.core.errors import UpstreamError
 from control_layer.core.models import Finding
 from control_layer.core.pipeline import Pipeline
@@ -137,7 +139,8 @@ def create_app(
         async with httpx.AsyncClient() as http:
             guard = guard_client or OllamaGuardClient(http, cfg.guard_url)
             detectors = _build_detectors(DetectorDeps(guard=guard))
-            audit = FanoutAuditSink([AuditJsonl(cfg.audit_path), metrics])
+            telemetry = TelemetrySink(clock_)
+            audit = FanoutAuditSink([AuditJsonl(cfg.audit_path), metrics, telemetry])
             # the feed loads first: its detector must be in param_models before the policy loads
             feed = FeedFile.load_initial(cfg.feed_path, audit, clock_, interval_s=cfg.policy_poll_s)
             if SIGNATURE_KIND in detectors:
@@ -154,6 +157,7 @@ def create_app(
                 budgets=InMemoryBudgetStore(),
                 audit=audit,
                 clock=clock_,
+                tool_pins=InMemoryToolPinStore(),
                 feed=feed,
             )
             app.state.runtime = Runtime(
@@ -161,6 +165,8 @@ def create_app(
                 policy=policy,
                 feed=feed,
                 registered_kinds=tuple(sorted(detectors)),
+                telemetry=telemetry,
+                audit_path=cfg.audit_path,
             )
             await _warm_up(detectors, policy.current().policy)
             # startup errors (e.g. invalid policy) above propagate unwrapped; only the poller runs
