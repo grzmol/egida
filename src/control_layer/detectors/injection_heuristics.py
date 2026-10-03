@@ -157,7 +157,9 @@ PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         ),
         (
             "role_reset",
-            r"(#{2,}|={3,}|-{3,})\s*(koniec|end of)\s+(kontekstu|context|instrukcji|instructions|"
+            # lookbehinds: try a run only from its first char, else long "-----" runs are O(n^2)
+            r"((?<!#)#{2,}|(?<!=)={3,}|(?<!-)-{3,})\s*(koniec|end of)\s+"
+            r"(kontekstu|context|instrukcji|instructions|"
             r"user input)|\b(nowa rola|new role)\s*:",
         ),
         (
