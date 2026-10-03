@@ -215,7 +215,8 @@ def test_case(
     if live_client is not None and "offline-only" in tags:
         report[case["id"]] = (case, "skipped")
         pytest.skip("offline-only")
-    if case["control"] in REGISTRY and case["control"] not in enabled_controls():
+    known = case["control"] in REGISTRY or "semantic" in tags
+    if known and case["control"] not in enabled_controls():
         report[case["id"]] = (case, "skipped")
         pytest.skip(f"control {case['control']} is not enabled in {POLICY_PATH}")
     if "needs-budget-store" in tags:  # strict: turns red once budgets work, then drop the tag
