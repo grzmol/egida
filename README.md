@@ -55,7 +55,6 @@ curl -s http://127.0.0.1:8080/v1/chat/completions -H 'Authorization: Bearer sk-d
 | Okno pracy | 3.10 11:00 → 4.10 11:00 (potwierdzone dla wszystkich zadań); **pierwszy draft do 3.10 20:00** |
 | Język | angielski lub polski |
 | Prawa autorskie | zostają przy nas |
-| Pełna specyfikacja | [`knowledge-base/tasks/partner-goldman-sachs-ai-control-layer.md`](knowledge-base/tasks/partner-goldman-sachs-ai-control-layer.md) |
 
 ### Wymagania formalne
 
@@ -231,7 +230,7 @@ Stan na 3.10.2026, `main @ d1725fe` (liczby odświeżamy po freezie na commicie 
 |---|---|---|
 | Offline: lint, typy, granice architektury, testy jednostkowe i przypadki YAML | `make check` (testy: `uv run pytest -q`) | 930 passed, 76 skipped |
 | Na żywo: te same przypadki przeciw działającemu proxy | `CONTROL_LAYER_SELFTEST_AGENT=selftest-agent make selftest` | 179 passed, 54 skipped — próba freeze 3.10 ok. 15:20 na `9f9af42`, upstream zastąpiony atrapą HTTP (bez Ollamy) |
-| Wydajność | `make bench` (Maciej, D5, natywnie na `8849425`) | 60 żądań, 2,99 req/s, 0 błędów; blokada p50 4,4 ms vs przepuszczenie p50 2,0 s (czas modelu); narzut proxy p50 2,2 ms ([`docs/tasks/maciej/README.md`](docs/tasks/maciej/README.md)) |
+| Wydajność | `make bench` (Maciej, D5, natywnie na `8849425`) | 60 żądań, 2,99 req/s, 0 błędów; blokada p50 4,4 ms vs przepuszczenie p50 2,0 s (czas modelu); narzut proxy p50 2,2 ms |
 | Red team i FP/FN | `scripts/redteam.py`, `scripts/eval_fpfn.py` | sekcja [Red team (garak) i FP/FN](#red-team-garak-i-fpfn) |
 
 **Dlaczego „skipped”** (logika w [`tests/test_cases.py`](tests/test_cases.py)): przypadek kontroli wyłączonej w `config/policy.yaml` jest pomijany (offline: 30 `harmful` + 3 `prompt_guard`); testy jednostkowe Prompt Guard i guard LLM wymagają modeli (offline: 39 „run `make models`”, 4 „needs Ollama with llama-guard3:1b”). Na żywo dodatkowo pomijane są przypadki z tagiem `offline-only` (sprawdzają rzeczy niewidoczne z zewnątrz, np. treść wysłaną do upstreamu). Przypadki `known-gap` to strict xfail: znane luki detektorów, które zrobią się czerwone, gdy luka zostanie naprawiona.
@@ -282,62 +281,6 @@ Przed 11:00 powstały tylko: `README.md` z jedną linią (`230a815`) i szablon D
 
 **Built with Llama.** Używamy modeli Llama: Llama Prompt Guard 2 86M (Llama 4 Community License), `llama-guard3:1b` i `llama3.2:3b` (Llama 3.2 Community License). Obie licencje w § 1.b.i wymagają przy udostępnianiu produktu zawierającego materiały Llama: „(B) prominently display “Built with Llama” on a related website, user interface, blogpost, about page, or product documentation” ([Llama 4](https://www.llama.com/llama4/license/), [Llama 3.2](https://github.com/meta-llama/llama-models/blob/main/models/llama3_2/LICENSE)). Wag modeli nie rozpowszechniamy: pobiera je użytkownik (`make models`, `ollama pull`) razem z licencją.
 
-## Dlaczego to zadanie
-
-Przeanalizowaliśmy wszystkie 10 zadań pod kątem pisania projektu z pomocą AI. Kwoty, wagi i wymagania pochodzą z [bazy wiedzy](knowledge-base/README.md); oceny „+/−” to nasza ocena.
-
-| Zadanie | AI dobrze koduje w tym stacku? | Ocena sprawdzalna kodem/testami? | Nagrody | Przeszkody | Miejsce |
-|---|---|---|---|---|---|
-| **AI Control Layer** | ++ Python/Go, regexy, Ollama, pytest | ++ jury uruchamia testy, prompty i zmiany konfiguracji na żywo | 15k PLN, 3 miejsca | brak; EN/PL, prawa zostają u nas | **1** |
-| HubMI.pl | ++ zwykła aplikacja webowa z AI do dopasowań | + 40% za liczbę modułów, ale 40% to UX, WCAG i makiety | 15k PLN, 3 miejsca | przekazanie praw autorskich, oddanie kodu w 24 h, tylko po polsku, 18+, na miejscu | 2 |
-| Huawei – Imagine What's Next | −− ArkTS/ArkUI API 20, DevEco, `.hap`; modele słabo znają ten stack | + | 25k PLN, 3 miejsca | tylko po angielsku, emulator i podpisywanie aplikacji | 3 |
-| Kraków bez barier | + web i OpenStreetMap | − dwa różne zestawy kryteriów, 20% za model biznesowy | 5k PLN, 1 miejsce | przekazanie praw, wypłata do 180 dni | 4 |
-| 5 zadań otwartych (AI, Defence, ImpactHer, Smart City, Sport) | ++ | −− 30% za pomysł i 20% za wygląd, ocena subiektywna | 8k PLN, 1 miejsce każde | brak | 5 |
-| SuperTeam (Solana) | − Rust/Anchor, portfele, faucet | + demo transakcji on-chain | 3k PLN łącznie | sprzeczna waluta puli (USD czy PLN) | 6 |
-
-Najważniejsze powody:
-
-- **Konkretna specyfikacja.** Sześć formalnych wymagań da się zamienić w testy, które przechodzą albo nie — na takiej specyfikacji agenci AI pracują najlepiej.
-- **Testy są częścią oceny** (15–20%). Generowanie wielu przypadków pozytywnych i negatywnych to mocna strona AI.
-- **Wygląd nie jest oceniany** — kryterium Design ma 0%. Wystarczy prosty dashboard.
-- **Kod zostaje nasz** — bez przekazania praw autorskich (w przeciwieństwie do HubMI i Krakowa).
-- **Trzy nagrody** — większa szansa na wynik niż w zadaniach otwartych z jedną nagrodą.
-
-**Alternatywa: HubMI.pl** — jeśli wolimy zadanie społeczne z prezentacją po polsku i przekazanie praw nam nie przeszkadza. 40% punktów daje liczba zrobionych modułów, a z AI można je dorobić szybko.
-
-## Ocena ryzyka
-
-1. **Ryzyko: średnie.** Kod jest przewidywalny; ryzykiem jest odporność na prompty, których jury nie przygotowuje wcześniej, i na zmiany konfiguracji w trakcie testów.
-2. **Główne założenie.** Lokalny model przez Ollamę musi wyłapywać prompt injection wystarczająco dobrze i szybko, żeby demo nie zwalniało.
-3. **Co sprawdzić najpierw.** Godzinny test: kilka małych modeli w Ollamie na ok. 30 promptach z atakami i bez nich; mierzymy trafność i czas odpowiedzi.
-4. **Najmniejsza działająca wersja:**
-   - proxy zgodne z API OpenAI;
-   - plik YAML z politykami, przeładowywany bez restartu;
-   - deterministyczne wykrywanie PII i sekretów (blokowanie albo redakcja);
-   - budżet tokenów per agent;
-   - log audytowy w JSONL;
-   - testy w pytest uruchamiane jednym poleceniem.
-
-   Potem: kontrole semantyczne, sygnatury znanych ataków (np. niebezpieczny pickle, wykonanie kodu), dashboard i telemetria.
-5. **Na później.** Obsługa wielu protokołów naraz (agent↔agent, MCP), zewnętrzny system dostarczający sygnatury (na start lokalny plik), dopracowany frontend.
-
-## Do potwierdzenia
-
-- **Zawartość pierwszego draftu.** Freeze 19:00, zgłoszenie 19:45 (Kamil).
-- **Wagi kryteriów.** CRITERIA i RULES różnią się dla testów i wdrażalności (15/15 vs 20/10). Przygotowujemy się na wariant z RULES — 20% za testy.
-- **Platforma zgłoszeń.** RULES: HackTribe.
-- **Stack.** Python 3.12, FastAPI, Pydantic v2, Ollama ([ADR-0002](docs/adr/README.md)).
-
-## Zasady hackathonu, o których pamiętamy
-
-- Liczy się tylko praca wykonana w oknie konkursowym; kod sprzed hackathonu wyraźnie oddzielamy i ujawniamy.
-- Musimy umieć wyjaśnić każdą część rozwiązania, także kod wygenerowany przez AI.
-- Ujawniamy istotne użycie narzędzi AI, zewnętrznych modeli, API, zbiorów danych i bibliotek; cytujemy wykorzystane repozytoria; przestrzegamy licencji.
-- Zgłoszenie: tytuł, nazwa zespołu, lista członków, opis, prezentacja PDF do 10 slajdów; opcjonalnie repozytorium, demo, zrzuty ekranu.
-- Nagroda wymaga min. 50% punktów.
-
-Pełne wspólne zasady: [`knowledge-base/README.md` §3](knowledge-base/README.md#3-common-rules).
-
 ## Plan projektu
 
 Plan ogólny z etapami F0–F7, zasadami ograniczającymi dług techniczny, architekturą i definicją ukończenia: [`docs/PLAN.md`](docs/PLAN.md). Decyzje architektoniczne: [`docs/adr/`](docs/adr/README.md).
@@ -346,15 +289,10 @@ Plan ogólny z etapami F0–F7, zasadami ograniczającymi dług techniczny, arch
 
 | Ścieżka | Zawartość |
 |---|---|
-| [`knowledge-base/README.md`](knowledge-base/README.md) | Indeks bazy wiedzy: porównanie zadań, wspólne zasady, kryteria, sprzeczności w źródłach |
-| [`knowledge-base/tasks/`](knowledge-base/tasks/) | Streszczenia 10 zadań zoptymalizowane pod AI (format HADS) |
-| [`knowledge-base/rules/`](knowledge-base/rules/) | Dosłowne teksty oficjalnych dokumentów — źródło prawdy |
 | [`docs/PLAN.md`](docs/PLAN.md) | Plan projektu: etapy, zasady przeciw długowi technicznemu, architektura, definicja ukończenia |
 | [`docs/adr/`](docs/adr/README.md) | Rejestr decyzji architektonicznych (ADR) |
 | [`docs/architecture.md`](docs/architecture.md) | Architektura wg aktualnego kodu: przepływ żądania, komponenty, kontrole, semantyka decyzji |
 | [`docs/research/`](docs/research/README.md) | Przegląd istniejących narzędzi, zagrożeń i brainstorming (synteza w `README.md`) |
-| [`docs/WORKPLAN.md`](docs/WORKPLAN.md), [`docs/tasks/`](docs/tasks/) | Plan pracy zespołu (4 osoby): właścicielstwo plików, harmonogram, specyfikacje zadań |
-| [`AGENTS.md`](AGENTS.md) | Instrukcje dla agentów AI pracujących w repo |
 | `src/control_layer/` | Kod: `core/` (bez frameworków), `adapters/`, `detectors/`, `dashboard/`, `app.py` |
 | `config/` | Polityki: `policy.yaml` (domyślna), `policy.strict.yaml`, `policy.lenient.yaml`, `policy.compose.yaml` (Docker) |
 | `signatures/` | Feed sygnatur znanych ataków (`feed.yaml`) i reguła do demo W2 (`demo/sig-0005.yaml`) |
