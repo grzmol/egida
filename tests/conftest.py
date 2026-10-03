@@ -1,5 +1,7 @@
 """Shared fixtures. Owner: Grzegorz (Dev A). `--target` is used by Sebastian's case runner."""
 
+# Async tests use the anyio pytest plugin (ships with anyio): mark with @pytest.mark.anyio.
+
 from __future__ import annotations
 
 import copy
@@ -82,3 +84,8 @@ class FixedClock:
 @pytest.fixture
 def clock() -> FixedClock:
     return FixedClock()
+
+
+@pytest.fixture
+def anyio_backend() -> str:
+    return "asyncio"
