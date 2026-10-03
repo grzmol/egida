@@ -107,5 +107,5 @@ class MetricsMemory:
 
 def _mentions(event: dict[str, object], control: str) -> bool:
     findings = event.get("findings")
-    ids = {f["control_id"] for f in findings} if isinstance(findings, list) else set()
+    ids = {f["control_id"] for f in findings} if isinstance(findings, (list, tuple)) else set()
     return control == event.get("blocked_by") or control in ids
