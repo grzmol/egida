@@ -137,12 +137,39 @@ Najważniejsze powody:
    Potem: kontrole semantyczne, sygnatury znanych ataków (np. niebezpieczny pickle, wykonanie kodu), dashboard i telemetria.
 5. **Na później.** Obsługa wielu protokołów naraz (agent↔agent, MCP), zewnętrzny system dostarczający sygnatury (na start lokalny plik), dopracowany frontend.
 
-## Do potwierdzenia
+## Status projektu i potwierdzone decyzje
 
-- **Zawartość pierwszego draftu (20:00).** Do potwierdzenia u organizatorów. Cel z planu: F0–F2 + opis i diagram.
-- **Wagi kryteriów.** CRITERIA i RULES różnią się dla testów i wdrażalności (15/15 vs 20/10). Przygotowujemy się na wariant z RULES — 20% za testy.
-- **Platforma zgłoszeń.** RULES: HackTribe.
-- **Stack.** Propozycja: Python (FastAPI + pytest) + Ollama. Niezatwierdzone.
+- **Stack technologiczny (Zatwierdzony w ADR-0002):** Python 3.12 (`uv`), FastAPI, Pydantic v2, ONNX Runtime (`Prompt Guard 2`), `python-stdnum`, PyYAML. Lokalne modele przez Ollamę (`llama3.2:3b`).
+- **Materiały do pierwszego draftu (20:00):** Gotowe! Slajdy PDF: [`docs/pitch/draft-slides.pdf`](docs/pitch/draft-slides.pdf), formularz: [`docs/submission/draft.md`](docs/submission/draft.md), mapa bezpieczeństwa: [`docs/owasp-mapping.md`](docs/owasp-mapping.md).
+- **Platforma zgłoszeń:** HackTribe (zgodnie z RULES i instrukcją).
+- **Wagi kryteriów:** 30% Guardrails, 20% Architektura, 20% Raportowanie, 15–20% Self-Testing Suite, 10–15% Implementacja.
+
+## Szybki start (Quickstart)
+
+Wymagania: `uv` (lub Python 3.12).
+
+1. **Pobranie modeli ONNX:**
+   ```bash
+   uv run python scripts/fetch_models.py
+   # lub: make models
+   ```
+2. **Uruchomienie warstwy kontroli (proxy):**
+   ```bash
+   uv run uvicorn control_layer.app:create_app --factory --host 127.0.0.1 --port 8080
+   # lub: make run
+   ```
+3. **Interaktywny Dashboard i audyt:**
+   Otwórz w przeglądarce: [http://127.0.0.1:8080/dashboard](http://127.0.0.1:8080/dashboard)
+4. **Uruchomienie automatycznego pakietu testów (Self-Testing Suite):**
+   ```bash
+   uv run pytest -q tests/test_cases.py --target http://127.0.0.1:8080
+   # lub offline bez serwera: make test
+   ```
+5. **Weryfikacja integralności łańcucha hashy audytu:**
+   ```bash
+   uv run python -m control_layer.adapters.audit_jsonl verify var/audit.jsonl
+   # lub: make verify-audit
+   ```
 
 ## Zasady hackathonu, o których pamiętamy
 
@@ -169,9 +196,13 @@ Plan ogólny z etapami F0–F7, zasadami ograniczającymi dług techniczny, arch
 | [`docs/adr/`](docs/adr/README.md) | Rejestr decyzji architektonicznych (ADR) |
 | [`docs/architecture.md`](docs/architecture.md) | Architektura wg aktualnego kodu: przepływ żądania, komponenty, kontrole, semantyka decyzji |
 | [`docs/research/`](docs/research/README.md) | Przegląd istniejących narzędzi, zagrożeń i brainstorming (synteza w `README.md`) |
-| [`docs/WORKPLAN.md`](docs/WORKPLAN.md), [`docs/tasks/`](docs/tasks/) | Plan pracy zespołu (4 osoby): właścicielstwo plików, harmonogram, specyfikacje zadań |
+| [`docs/WORKPLAN.md`](docs/WORKPLAN.md), [`docs/tasks/`](docs/tasks/) | Plan pracy zespołu (4 osoby: Grzegorz, Sebastian, Kamil, Maciej) |
+| [`docs/owasp-mapping.md`](docs/owasp-mapping.md) | Formalne mapowanie kontroli na OWASP LLM Top 10, OWASP Agentic ASI i MITRE ATLAS |
+| [`docs/pitch/draft-slides.pdf`](docs/pitch/draft-slides.pdf) | Prezentacja draftu w formacie PDF (5 slajdów) |
+| [`docs/submission/draft.md`](docs/submission/draft.md) | Gotowa treść zgłoszenia na platformę HackTribe |
+| [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md) | Rejestr zależności i licencji OSS |
 | [`AGENTS.md`](AGENTS.md) | Instrukcje dla agentów AI pracujących w repo |
 | `src/control_layer/` | Kod: `core/` (bez frameworków), `adapters/`, `detectors/`, `dashboard/`, `app.py` |
 | `config/` | Polityki: `policy.yaml` (domyślna), `policy.strict.yaml`, `policy.lenient.yaml` |
-| `Dockerfile`, `compose.yaml` | Szablon z `docker init` — zastępuje go Maciej (D2) |
+| `Dockerfile`, `compose.yaml` | Konfiguracja kontenerów (zarządzana przez Dev D) |
 | `site/` | Pełna dokumentacja jako statyczna strona HTML (lokalnie `make docs`, publikacja: GitHub Pages) |
