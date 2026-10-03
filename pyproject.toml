@@ -22,6 +22,7 @@ build-backend = "uv_build"
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+extend-exclude = ["*.md", "docs", "knowledge-base"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "ASYNC", "BLE", "S"]
