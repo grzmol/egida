@@ -113,6 +113,8 @@ class PromptGuardDetector:
         return float((exp[:, MALICIOUS] / exp.sum(axis=1)).max())
 
     def _probability(self, text: str, max_windows: int) -> tuple[float, int, bool]:
+        # tokenizers (Rust) rejects lone surrogates with a generic TypeError; JSON can carry them.
+        text = text.encode("utf-8", "replace").decode("utf-8")
         ids = self._tokenizer.encode(text, add_special_tokens=False).ids
         long, long_cut = windows(ids, LONG_WINDOW, LONG_STEP, max_windows)
         best = max(self._batch(long[i : i + 4]) for i in range(0, len(long), 4))
