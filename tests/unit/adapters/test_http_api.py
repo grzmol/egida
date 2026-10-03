@@ -310,3 +310,35 @@ def test_policy_endpoint_reports_controls_and_kinds(client: TestClient) -> None:
     assert "test_keyword" in body["registered_kinds"]
     assert body["agents"][0]["id"] == "demo-agent"
     assert "key_sha256" not in json.dumps(body)
+
+
+@pytest.mark.parametrize("policy_file", sorted(Path("config").glob("policy*.yaml")), ids=str)
+def test_app_starts_with_shipped_policy(policy_file: Path, tmp_path: Path) -> None:
+    """Every shipped policy loads with the real detector registry, models present or not."""
+    settings = Settings(policy_path=policy_file, audit_path=tmp_path / "audit.jsonl")
+    with TestClient(create_app(settings, model_client=FakeModelClient())) as c:
+        assert c.get("/healthz").status_code == 200
+        kinds = c.get("/api/policy").json()["registered_kinds"]
+    assert {"pii", "secrets", "injection_heuristics", "prompt_guard"} <= set(kinds)
+
+
+def test_detector_failing_at_startup_fails_closed(
+    paths: Settings, policy_dict: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Missing model files must not stop the app nor let traffic through the broken control."""
+
+    def missing(deps: DetectorDeps) -> _KeywordDetector:
+        raise FileNotFoundError("models/x/model.onnx missing; run `make models`")
+
+    monkeypatch.setitem(REGISTRY, "test_keyword", missing)
+    with TestClient(create_app(paths, model_client=FakeModelClient())) as c:
+        resp = _chat(c)
+    assert resp.headers["X-Control-Decision"] == "block"
+    assert resp.json()["control_layer"]["blocked_by"] == "keyword"
+    errors = [
+        json.loads(line)
+        for line in paths.audit_path.read_text().splitlines()
+        if '"control_error"' in line
+    ]
+    assert errors[0]["control_id"] == "keyword"
+    assert "make models" in errors[0]["detail"]
