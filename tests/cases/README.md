@@ -17,7 +17,7 @@ Fake model reply (ASGI): `"OK"` unless `model_reply` is set. Live (`--target`): 
 | `method`, `path` | default `POST /v1/chat/completions` |
 | `raw_body` | send this string instead of JSON `request` |
 | `fill` | replace the last message content with `"a" * fill` |
-| `model_reply` | fake model reply |
+| `model_reply` | fake model reply: a string, `{echo: system}` (leaks the system prompt) or `{tool_calls: [{name, arguments}]}` (`arguments` is JSON text; declare the tool in `request.tools`) |
 | `policy_patch` | override merged into the base policy; `controls` is patched by id, `null` removes a control |
 | `repeat` | send the request N times; `expect` applies to the last response |
 | `expect.http_status` | HTTP status, default 200 |

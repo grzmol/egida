@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 
 from control_layer.adapters.fake_model import FakeModelClient
 from control_layer.app import Settings, create_app
-from control_layer.core.models import Interaction, Side
+from control_layer.core.models import Interaction, Message, Side, ToolCall
 from control_layer.core.texts import iter_texts
 from control_layer.detectors import REGISTRY
 
@@ -172,8 +172,9 @@ def check(case: Case, response: httpx.Response, fake: FakeModelClient | None) ->
             assert sent.max_tokens == expect["upstream_max_tokens"]
 
 
-def fake_reply(case: Case) -> str | Callable[[Interaction], str]:
-    """`model_reply`: a string, or {echo: system}: the fake model leaks its system prompt."""
+def fake_reply(case: Case) -> str | Message | Callable[[Interaction], str]:
+    """`model_reply`: a string; {echo: system}: the fake model leaks its system prompt;
+    {tool_calls: [{name, arguments}]}: the fake model calls tools (arguments as JSON text)."""
     reply = case.get("model_reply")
     if reply is None:
         return "OK"
@@ -181,6 +182,12 @@ def fake_reply(case: Case) -> str | Callable[[Interaction], str]:
         return reply
     if reply == {"echo": "system"}:
         return lambda i: "\n".join(m.content for m in i.messages if m.role == "system")
+    if isinstance(reply, dict) and set(reply) == {"tool_calls"}:
+        calls = tuple(
+            ToolCall(id=f"call_{n}", name=c["name"], arguments=c["arguments"])
+            for n, c in enumerate(reply["tool_calls"])
+        )
+        return Message(role="assistant", content="", tool_calls=calls)
     raise ValueError(f"{case['id']}: unsupported model_reply {reply!r}")
 
 
