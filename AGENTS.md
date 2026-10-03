@@ -27,7 +27,8 @@ Team repository for the HackYeah 2026 hackathon (Kraków, Oct 3–4, 2026). Read
 2. Open `knowledge-base/tasks/<slug>.md` for the task in question; it lists only deviations from README §3.
 3. Open `knowledge-base/rules/…` only for exact wording, legal clauses (copyright transfer, RODO, licences) or quotes.
 - Precedence: `rules/` > `tasks/` > `README.md`. Partner rules override common rules for their task.
-- Facts in `**[?]**` blocks are conflicting or unverified in the official sources. Always tell the user when an answer depends on one (e.g. HackTribe vs Challenge Rocket, 11:00 vs 11:00 PM work window, Goldman Sachs and Kraków criteria weights).
+- Facts in `**[?]**` blocks are conflicting or unverified in the official sources. Always tell the user when an answer depends on one (e.g. HackTribe vs Challenge Rocket, Goldman Sachs and Kraków criteria weights).
+- Work window is confirmed by the team: all tasks 11:00 Oct 3 → 11:00 Oct 4, first draft due 20:00 Oct 3 (`knowledge-base/README.md` §3.2).
 - Never answer from memory or general HackYeah knowledge; cite the file.
 
 ## Editing the Knowledge Base

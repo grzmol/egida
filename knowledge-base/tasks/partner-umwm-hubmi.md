@@ -1,5 +1,5 @@
 # HubMI.pl — Małopolska Social Innovation Hub tool
-**Version 1.0.0** · HackYeah 2026 knowledge base · 2026-10-03 · Track: Partner Task — Województwo Małopolskie (UMWM) / ROPS Kraków
+**Version 1.0.1** · HackYeah 2026 knowledge base · 2026-10-03 · Track: Partner Task — Województwo Małopolskie (UMWM) / ROPS Kraków
 
 ---
 
@@ -91,7 +91,7 @@ Testing/validation focus (CRITERIA §6): intuitiveness for users of any age/digi
 
 ## 7. Task-specific Rules
 **[SPEC]**
-- Timing: 11:00 → 11:00 (not baseline 11 PM); task published on www.hackyeah.pl at 11:00 on start day; solving starts after official opening.
+- Timing: 11:00 → 11:00 (same as confirmed common window, README §3.2); task published on www.hackyeah.pl at 11:00 on start day; solving starts after official opening.
 - Eligibility: Hackathon participants only; natural persons 18+ with full legal capacity. No baseline-style sponsor/jury-relative exclusion stated.
 - Jury: elects chairperson; simple majority with all members present; tie → chairperson decides (also for ranking ties). Jury composition published on Hackathon website by start day. No two-phase mentor/pitch process described; pitch to Jury in Polish.
 - Prize payment: conditional on (a) signing copyright-transfer agreement with Proidea, (b) providing tax/settlement data. Paid within 60 days of the agreement (unless agreement says otherwise). Team prize split proportionally per member, paid to each member's bank account.
@@ -144,3 +144,4 @@ CRITERIA bonus scheme (10% + 5% per extra module) with 6 optional modules gives 
 
 ## Changelog
 - 1.0.0 · 2026-10-03 · Initial summary from verbatim sources.
+- 1.0.1 · 2026-10-03 · Work window aligned with team-confirmed common window.

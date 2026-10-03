@@ -1,5 +1,5 @@
 # Cracow without barriers („Kraków bez barier”)
-**Version 1.0.0** · HackYeah 2026 knowledge base · 2026-10-03 · Track: Partner Task — Miasto Kraków (Gmina Miejska Kraków)
+**Version 1.0.1** · HackYeah 2026 knowledge base · 2026-10-03 · Track: Partner Task — Miasto Kraków (Gmina Miejska Kraków)
 
 ---
 
@@ -22,7 +22,7 @@ Exact wording: `../rules/Partner Task [Miasto Kraków] - Cracow without barriers
 | Prize | 5 000 PLN incl. tax (single prize) |
 | Payout | within 180 days of results announcement |
 | Team size | individual or team of up to 6 |
-| Work window | start no earlier than 11:00 Oct 3; submit no later than 11:00 Oct 4 (see §8) |
+| Work window | start no earlier than 11:00 Oct 3; submit no later than 11:00 Oct 4 (same as confirmed common window, README §3.2) |
 | Submission platform | HackTribe |
 | Language | Polish (RULES) |
 | Evaluation | Jury of ≥2 members; simple majority; tie → Chairperson (elected by panel before competition) |
@@ -104,7 +104,7 @@ RULES:
 
 ## 7. Task-specific Rules
 **[SPEC]**
-Deviations from README §3: prize 5 000 PLN; payout 180 days; window 11:00–11:00; Polish submission; mp4 video ≤3 min required; "team ID" instead of team name/member list; Jury ≥2, majority vote, Chairperson decides ties; jury list on HackYeah website by Oct 3; copyrights transferred (below). No task-specific AI rules.
+Deviations from README §3: prize 5 000 PLN; payout 180 days; Polish submission; mp4 video ≤3 min required; "team ID" instead of team name/member list; Jury ≥2, majority vote, Chairperson decides ties; jury list on HackYeah website by Oct 3; copyrights transferred (below). No task-specific AI rules.
 
 Attachment 1 — copyright transfer agreement (Umowa o przeniesienie praw autorskich), signed by each team member:
 - Parties: Acquirer (Nabywca) Gmina Miejska Kraków, pl. Wszystkich Świętych 3-4, 31-004 Kraków, NIP 676-101-37-17, REGON 351554353, represented by Paweł Schmidt, Director of Centrum Obsługi Informatycznej (power of attorney no. 100/2025 of 20.01.2025); Authors/Transferors (Autorzy/Przekazujący) bound individually and jointly.
@@ -131,8 +131,6 @@ Criteria differ completely: KRYTERIA (25/20/15/20/20, usefulness/prototype/data/
 **[?]**
 Rights recipient: RULES §14 says rights go to the prize sponsor (Proidea) and agreement is with the event organizer; Attachment 1 makes Gmina Miejska Kraków the Acquirer.
 **[?]**
-Work window in RULES is 11:00 Oct 3 – 11:00 Oct 4, vs common 11:00 PM; KRYTERIA silent.
-**[?]**
 Video: RULES "mp4 video"; KRYTERIA "film in an accessible open repository". Both say max 3 min.
 
 ## 9. Sources
@@ -143,3 +141,4 @@ Video: RULES "mp4 video"; KRYTERIA "film in an accessible open repository". Both
 
 ## Changelog
 - 1.0.0 · 2026-10-03 · Initial summary from verbatim sources.
+- 1.0.1 · 2026-10-03 · Work window conflict resolved: team-confirmed 11:00 → 11:00 for all tasks.

@@ -1,5 +1,5 @@
 # Finance Without Intermediaries („Finanse bez pośrednika”)
-**Version 1.0.0** · HackYeah 2026 knowledge base · 2026-10-03 · Track: Partner Task — SuperTeam (Superteam Poland)
+**Version 1.0.1** · HackYeah 2026 knowledge base · 2026-10-03 · Track: Partner Task — SuperTeam (Superteam Poland)
 
 ---
 
@@ -21,7 +21,7 @@ Exact wording: `../rules/Partner Task [SuperTeam] - Finance without intermediari
 | Prize sponsor | SUPERTEAM Spółka z o.o., Warsaw, ul. Kaleńska 7/7, 04-367, NIP 1133152620 (replaces Proidea) |
 | Prize | 1st PLN 1,500 · 2nd PLN 1,000 · 3rd PLN 500 (incl. tax); pool stated as USD 3,000 — see §8 |
 | Team size | common (1–6) |
-| Work window | common (Oct 3 11:00 PM – Oct 4 11:00 PM) |
+| Work window | common (Oct 3 11:00 → Oct 4 11:00; draft by Oct 3 20:00 — README §3.2) |
 | Submission platform | HackTribe (RULES) |
 | Language | common (English or Polish) |
 | Evaluation | common 2 phases; final = live demo to judges |
@@ -107,3 +107,4 @@ Required items differ: RULES require only title, team name, members, description
 
 ## Changelog
 - 1.0.0 · 2026-10-03 · Initial summary from verbatim sources.
+- 1.0.1 · 2026-10-03 · Work window updated to team-confirmed 11:00 → 11:00 + 20:00 draft.

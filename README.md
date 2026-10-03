@@ -10,7 +10,7 @@ Repozytorium zespołu na hackathon HackYeah 2026 (Kraków, 3–4 października 2
 |---|---|
 | Nagrody | 15 000 PLN brutto: 6 000 / 5 000 / 4 000 |
 | Zespół | 1–6 osób |
-| Okno pracy | start nie wcześniej niż 3.10 23:00, oddanie do 4.10 23:00 (wg RULES — patrz [Do potwierdzenia](#do-potwierdzenia)) |
+| Okno pracy | 3.10 11:00 → 4.10 11:00 (potwierdzone dla wszystkich zadań); **pierwszy draft do 3.10 20:00** |
 | Język | angielski lub polski |
 | Prawa autorskie | zostają przy nas |
 | Pełna specyfikacja | [`knowledge-base/tasks/partner-goldman-sachs-ai-control-layer.md`](knowledge-base/tasks/partner-goldman-sachs-ai-control-layer.md) |
@@ -79,7 +79,7 @@ Najważniejsze powody:
 
 ## Do potwierdzenia
 
-- **Godziny pracy.** RULES tego zadania: start nie wcześniej niż 3.10 23:00, oddanie do 4.10 23:00. Kraków i HubMI mają 11:00 → 11:00. Potwierdzić u organizatorów.
+- **Zawartość pierwszego draftu (20:00).** Do potwierdzenia u organizatorów. Cel z planu: F0–F2 + opis i diagram.
 - **Wagi kryteriów.** CRITERIA i RULES różnią się dla testów i wdrażalności (15/15 vs 20/10). Przygotowujemy się na wariant z RULES — 20% za testy.
 - **Platforma zgłoszeń.** RULES: HackTribe.
 - **Stack.** Propozycja: Python (FastAPI + pytest) + Ollama. Niezatwierdzone.

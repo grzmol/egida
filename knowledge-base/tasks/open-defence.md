@@ -1,5 +1,5 @@
 # Open Task – Defence
-**Version 1.0.0** · HackYeah 2026 knowledge base · 2026-10-03 · Track: Open Task
+**Version 1.0.1** · HackYeah 2026 knowledge base · 2026-10-03 · Track: Open Task
 
 ---
 
@@ -21,7 +21,7 @@ Exact wording: `../rules/Open Task - Defence/<file>.md`.
 | Organizer / prize sponsor | Proidea Sp. z o.o. (common) |
 | Prize | 8 000 PLN incl. tax (common open-task default) |
 | Team size | 1–6 (common) |
-| Work window | 11:00 PM Oct 3 – 11:00 PM Oct 4 (common) |
+| Work window | common (Oct 3 11:00 → Oct 4 11:00; draft by Oct 3 20:00 — README §3.2) |
 | Submission platform | common (HackTribe vs Challenge Rocket conflict, README) |
 | Language | English or Polish (common) |
 | Evaluation | 2 phases, min 50% (common) |
@@ -73,3 +73,4 @@ Same as common rules (README §3). No deviations in prize, eligibility, IP, or A
 
 ## Changelog
 - 1.0.0 · 2026-10-03 · Initial summary from verbatim sources.
+- 1.0.1 · 2026-10-03 · Work window updated to team-confirmed 11:00 → 11:00 + 20:00 draft.

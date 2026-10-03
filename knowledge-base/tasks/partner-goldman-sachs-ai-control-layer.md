@@ -1,5 +1,5 @@
 # AI Control Layer
-**Version 1.0.0** · HackYeah 2026 knowledge base · 2026-10-03 · Track: Partner Task — Goldman Sachs
+**Version 1.0.1** · HackYeah 2026 knowledge base · 2026-10-03 · Track: Partner Task — Goldman Sachs
 
 ---
 
@@ -21,7 +21,7 @@ Exact wording: `../rules/Partner Task [Goldman Sachs] - AI Control Layer/<file>.
 | Prize sponsor | common (Proidea Sp. z o.o.) |
 | Prize | PLN 15,000 incl. tax: 1st 6,000 · 2nd 5,000 · 3rd 4,000 |
 | Team size | common (1–6) |
-| Work window | common (Oct 3 11:00 PM – Oct 4 11:00 PM) |
+| Work window | common (Oct 3 11:00 → Oct 4 11:00; draft by Oct 3 20:00 — README §3.2) |
 | Submission platform | HackTribe (RULES) |
 | Language | common (English or Polish) |
 | Evaluation | common 2 phases; judges also run the team's test suite and test live (§5) |
@@ -100,3 +100,4 @@ Partner "Goldman Sachs" appears only in the folder name; neither source names th
 
 ## Changelog
 - 1.0.0 · 2026-10-03 · Initial summary from verbatim sources.
+- 1.0.1 · 2026-10-03 · Work window updated to team-confirmed 11:00 → 11:00 + 20:00 draft.

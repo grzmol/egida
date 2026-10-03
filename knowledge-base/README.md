@@ -1,5 +1,5 @@
 # HackYeah 2026 — Task Knowledge Base
-**Version 1.0.0** · HackYeah 2026 knowledge base · 2026-10-03 · 10 tasks (5 Open, 5 Partner) · Language: English summaries, original-language sources
+**Version 1.1.0** · HackYeah 2026 knowledge base · 2026-10-03 · 10 tasks (5 Open, 5 Partner) · Language: English summaries, original-language sources
 
 ---
 
@@ -44,16 +44,16 @@ Details/CRITERIA files describe the challenge and judging; Rules/RULES files are
 **[SPEC]**
 | Task | One-line challenge | Prize (incl. tax unless noted) | Payout | Work window | Language | IP to sponsor |
 |---|---|---|---|---|---|---|
-| ARTIFICIAL INTELLIGENCE | Solution where AI plays a meaningful role for a specific user need | 8 000 PLN | 90 d | Oct 3 11:00 PM → Oct 4 11:00 PM | EN/PL | No |
+| ARTIFICIAL INTELLIGENCE | Solution where AI plays a meaningful role for a specific user need | 8 000 PLN | 90 d | Oct 3 11:00 → Oct 4 11:00 (all tasks, §3.2) | EN/PL | No |
 | Defence | Tool that prevents threats, detects them earlier or reduces their consequences | 8 000 PLN | 90 d | same | EN/PL | No |
 | ImpactHer: Technology for Real Change | Tech solution for a real challenge affecting women | 8 000 PLN | 90 d | same | EN/PL | No |
 | SMART CITY | Tool for a concrete problem of a city or its residents | 8 000 PLN | 90 d | same | EN/PL | No |
 | SPORT & HEALTHCARE | Tool helping a user group take an active role in health, activity, wellbeing | 8 000 PLN | 90 d | same | EN/PL | No |
 | AI Control Layer (Goldman Sachs) | Gateway/proxy/middleware governing agentic-AI traffic: hybrid guardrails, budgets, reporting | 15 000 PLN: 6 000 / 5 000 / 4 000 | 90 d | same | EN/PL | No |
-| Imagine What's Next (Huawei) | System feature or app for OpenHarmony-based mobile device (API 20+) | 25 000 PLN: 12 000 / 8 000 / 5 000 (reduced by taxes/fees) | 60 d | HackYeah official schedule | EN only | No; non-exclusive 3-yr licences to Huawei (+PROIDEA promo) |
-| Cracow without barriers (Kraków) | Accessibility info for places/routes per individual needs, with data reliability | 5 000 PLN (single) | 180 d | Oct 3 11:00 → Oct 4 11:00 | PL | **Yes** — to Gmina Miejska Kraków (agreement) |
-| Finance Without Intermediaries (SuperTeam) | Solana program removing a trusted intermediary from a financial transaction | 1 500 / 1 000 / 500 PLN (pool stated "USD 3,000") | 90 d | Oct 3 11:00 PM → Oct 4 11:00 PM | EN/PL | No; repo public during evaluation |
-| HubMI.pl (UMWM / ROPS Kraków) | AI platform for Małopolska Social Innovation Hub; mandatory social-matchmaking module | 6 000 / 5 000 / 4 000 PLN (reduced by taxes) | 60 d from agreement | Oct 3 11:00 → Oct 4 11:00, on-site | PL | **Yes** — to Proidea, then Województwo Małopolskie |
+| Imagine What's Next (Huawei) | System feature or app for OpenHarmony-based mobile device (API 20+) | 25 000 PLN: 12 000 / 8 000 / 5 000 (reduced by taxes/fees) | 60 d | same | EN only | No; non-exclusive 3-yr licences to Huawei (+PROIDEA promo) |
+| Cracow without barriers (Kraków) | Accessibility info for places/routes per individual needs, with data reliability | 5 000 PLN (single) | 180 d | same | PL | **Yes** — to Gmina Miejska Kraków (agreement) |
+| Finance Without Intermediaries (SuperTeam) | Solana program removing a trusted intermediary from a financial transaction | 1 500 / 1 000 / 500 PLN (pool stated "USD 3,000") | 90 d | same | EN/PL | No; repo public during evaluation |
+| HubMI.pl (UMWM / ROPS Kraków) | AI platform for Małopolska Social Innovation Hub; mandatory social-matchmaking module | 6 000 / 5 000 / 4 000 PLN (reduced by taxes) | 60 d from agreement | same, on-site | PL | **Yes** — to Proidea, then Województwo Małopolskie |
 
 **[SPEC]**
 Required deliverables beyond the common set (§3.3):
@@ -82,7 +82,8 @@ Applies to all Open Tasks and, unless their task file says otherwise, to Partner
 ### 3.2 Timing
 
 **[SPEC]**
-- Start solving no earlier than 11:00 PM Oct 3; submit no later than 11:00 PM Oct 4.
+- All tasks: start no earlier than 11:00 Oct 3; submit no later than 11:00 Oct 4. **First draft due 20:00 Oct 3.** Source: confirmed by the team on 2026-10-03; overrides the "11:00 PM" wording of the shared Rules template.
+- Kraków and HubMI Rules state 11:00 → 11:00 directly.
 - Changes after the deadline are not considered.
 - Jury members posted on Discord (HackYeah communication platform) by Oct 4.
 
@@ -156,9 +157,6 @@ Applies to all Open Tasks and, unless their task file says otherwise, to Partner
 Submission platform: every Open Task Details file says "Challenge Rocket"; every Rules file says "HackTribe". Rules (legal terms) name HackTribe for both submission and phase-1 evaluation.
 
 **[?]**
-Work window: shared template says 11:00 PM Oct 3 → 11:00 PM Oct 4; Kraków and HubMI rules say 11:00 Oct 3 → 11:00 Oct 4. Sources do not explain the difference.
-
-**[?]**
 Tie-break wording in template ("the Jury's vote shall decide") does not say whose vote; Kraków and HubMI rules give the chairperson the deciding vote.
 
 **[?]**
@@ -182,3 +180,4 @@ Task-specific conflicts (details in each task file §Conflicts): Goldman Sachs c
 
 ## Changelog
 - 1.0.0 · 2026-10-03 · Initial knowledge base: index, common rules, 10 HADS task summaries over verbatim sources.
+- 1.1.0 · 2026-10-03 · Work window confirmed 11:00 → 11:00 for all tasks, first draft due 20:00 Oct 3; window conflict removed from §5.

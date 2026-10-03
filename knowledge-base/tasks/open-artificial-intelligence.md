@@ -1,5 +1,5 @@
 # ARTIFICIAL INTELLIGENCE
-**Version 1.0.0** · HackYeah 2026 knowledge base · 2026-10-03 · Track: Open Task
+**Version 1.0.1** · HackYeah 2026 knowledge base · 2026-10-03 · Track: Open Task
 
 ---
 
@@ -21,7 +21,7 @@ Exact wording: `../rules/Open Task - ARTIFICIAL INTELLIGENCE/<file>.md`.
 | Partner/organizer | Proidea Sp. z o.o. (common) |
 | Prize | 8 000 PLN incl. tax (common) |
 | Team size | 1–6 (common) |
-| Work window | common (Oct 3 11:00 PM – Oct 4 11:00 PM) |
+| Work window | common (Oct 3 11:00 → Oct 4 11:00; draft by Oct 3 20:00 — README §3.2) |
 | Submission platform | common (HackTribe vs Challenge Rocket conflict) |
 | Language | English or Polish |
 | Evaluation | common (2 phases) |
@@ -61,3 +61,4 @@ Same as common rules (README §3). No partner-specific AI rules.
 
 ## Changelog
 - 1.0.0 · 2026-10-03 · Initial summary from verbatim sources.
+- 1.0.1 · 2026-10-03 · Work window updated to team-confirmed 11:00 → 11:00 + 20:00 draft.
