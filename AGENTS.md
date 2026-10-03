@@ -4,9 +4,10 @@ Team repository for the HackYeah 2026 hackathon (Kraków, Oct 3–4, 2026). Read
 
 ## Project State
 
-- No application code yet. Stack and chosen task are not decided in the repo — ask the user; do not assume.
+- Chosen task: **AI Control Layer** (Partner Task, Goldman Sachs) — spec: `knowledge-base/tasks/partner-goldman-sachs-ai-control-layer.md`. Runner-up: HubMI.pl. Selected 2026-10-03.
+- No application code yet. Stack not decided in the repo — ask the user; do not assume.
 - `Dockerfile`, `compose.yaml`, `.dockerignore`, `README.Docker.md` are the unmodified `docker init` scaffold: Alpine image printing "Hello world" via `/bin/hello.sh`. No ports exposed, no services besides `app`.
-- `README.md` is a placeholder.
+- `README.md` describes the chosen task, the selection analysis, risks, MVP scope and open questions (in Polish). Keep it in sync when the decision or scope changes.
 - The user writes in Polish. Reply in Polish unless asked otherwise.
 
 ## Repository Layout
