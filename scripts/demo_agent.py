@@ -326,8 +326,8 @@ def main() -> int:
     client = OpenAI(base_url=a.base_url, api_key=a.key, timeout=120, max_retries=0)
     try:
         policy = fetch_policy(a.base_url)
-    except OSError:
-        print(f"proxy nie działa pod {a.base_url}", file=sys.stderr)
+    except (OSError, ValueError) as exc:  # URLError/HTTPError are OSError; bad JSON is ValueError
+        print(f"proxy nie działa pod {a.base_url} ({exc})", file=sys.stderr)
         return 2
 
     ok = True

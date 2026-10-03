@@ -1,0 +1,4 @@
+# `npm install --no-save openai` for openai_node.mjs
+node_modules/
+package.json
+package-lock.json

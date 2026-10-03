@@ -9,7 +9,7 @@ detector (max_identical) would block repeats and we would measure `budget.loop` 
 `by_decision.block` is the cost of the controls alone (no model call); the server's
 `overhead` stage is what the proxy adds on the full path, `upstream` is the model.
 
-Exit code: 0 when no request failed, 1 otherwise.
+Exit code: 0 when no request failed, 1 otherwise, 2 when A6 telemetry is missing.
 """
 
 from __future__ import annotations
@@ -182,7 +182,11 @@ def print_table(result: dict[str, Any]) -> None:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    from control_layer.adapters.telemetry import percentile  # single implementation (A6)
+    try:
+        from control_layer.adapters.telemetry import percentile  # single implementation (A6)
+    except ImportError as exc:
+        print(f"bench needs control_layer.adapters.telemetry (A6): {exc}", file=sys.stderr)
+        return 2
 
     result = asyncio.run(run(args, percentile))
     args.out.parent.mkdir(parents=True, exist_ok=True)
