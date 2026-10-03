@@ -29,7 +29,7 @@ curl -s http://127.0.0.1:8080/v1/chat/completions -H 'Authorization: Bearer sk-d
 # → HTTP 200, finish_reason "content_filter", header X-Control-Decision: block, field control_layer
 ```
 
-**Policy:** `config/policy.yaml` (controls, thresholds, actions, budgets, agents). Edit and save — applied within ~1 s, no restart; an invalid file is rejected (see `GET /api/policy` → `last_error`) and the last valid policy keeps running. Samples: `config/policy.strict.yaml`, `config/policy.lenient.yaml` (`CONTROL_LAYER_POLICY=config/policy.strict.yaml make run`). Demo keys: `sk-demo-agent`, `sk-ci-agent` (only their sha256 is stored).
+**Policy:** `config/policy.yaml` (controls, thresholds, actions, budgets, agents). Edit and save — applied within ~1 s, no restart; an invalid file is rejected (see `GET /api/policy` → `last_error`) and the last valid policy keeps running. Samples: `config/policy.strict.yaml`, `config/policy.lenient.yaml` (`CONTROL_LAYER_POLICY=config/policy.strict.yaml make run`). Demo keys (only their sha256 is stored): `sk-demo-agent`, `sk-ci-agent` (small budget), `sk-tools-agent` (tools `search_docs`, `read_file`, `http_get`), `sk-selftest-agent` (live selftest: `CONTROL_LAYER_SELFTEST_AGENT=selftest-agent make selftest`, own budget so it does not use up demo-agent's). Guard models (B6) are called on `CONTROL_LAYER_GUARD_URL` (default `http://127.0.0.1:11434`, Ollama's native API).
 
 **Reporting:** `http://127.0.0.1:8080/dashboard`, `GET /api/stats`, audit export `GET /api/audit/export?format=csv|jsonl`, audit integrity `make verify-audit`.
 

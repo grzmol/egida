@@ -352,8 +352,16 @@ print(r.headers["x-control-decision"])  # redact</code></pre>
 <tr><td><code>CONTROL_LAYER_POLICY</code></td><td><code>config/policy.yaml</code></td><td>plik polityki</td></tr>
 <tr><td><code>CONTROL_LAYER_AUDIT</code></td><td><code>var/audit.jsonl</code></td><td>plik audytu</td></tr>
 <tr><td><code>CONTROL_LAYER_MODELS_DIR</code></td><td><code>models/</code></td><td>modele ONNX, czytane raz przy starcie</td></tr>
+<tr><td><code>CONTROL_LAYER_GUARD_URL</code></td><td><code>http://127.0.0.1:11434</code></td><td>Ollama (natywne <code>/api/generate</code>) dla modeli guard</td></tr>
 </table>
-<p>Klucze demo: <code>sk-demo-agent</code> (budżet <code>default</code>), <code>sk-ci-agent</code> (budżet <code>small</code>). Polityka przechowuje tylko ich sha256.</p>
+<table>
+<tr><th>Klucz demo</th><th>Agent i po co</th></tr>
+<tr><td><code>sk-demo-agent</code></td><td>agent demo, budżet <code>default</code> (300 żądań/h)</td></tr>
+<tr><td><code>sk-ci-agent</code></td><td>drugi agent z małym budżetem <code>small</code></td></tr>
+<tr><td><code>sk-tools-agent</code></td><td>agent z narzędziami <code>search_docs</code>, <code>read_file</code>, <code>http_get</code></td></tr>
+<tr><td><code>sk-selftest-agent</code></td><td>selftest na żywo (<code>CONTROL_LAYER_SELFTEST_AGENT=selftest-agent make selftest</code>), własny budżet 2000 żądań/h, żeby nie zjadał budżetu demo</td></tr>
+</table>
+<p>Polityka przechowuje tylko sha256 kluczy.</p>
 </div>
 </details>
 </section>
@@ -419,9 +427,11 @@ print(r.headers["x-control-decision"])  # redact</code></pre>
 <tr><td><code>core/ports.py</code></td><td>definicje portów (<code>typing.Protocol</code>)</td><td>definiuje</td></tr>
 <tr><td><code>adapters/http_api.py</code></td><td>endpointy OpenAI, format blokady, SSE, <code>/api/policy</code>, <code>/healthz</code></td><td>wejście</td></tr>
 <tr><td><code>adapters/ollama_client.py</code></td><td>wywołanie upstreamu (chat API OpenAI)</td><td><code>ModelClient</code></td></tr>
-<tr><td><code>adapters/fake_model.py</code></td><td>model testowy; zapisuje, co dostałby model</td><td><code>ModelClient</code></td></tr>
+<tr><td><code>adapters/ollama_guard.py</code></td><td>modele guard przez natywne <code>/api/generate</code> (<code>raw</code>, <code>keep_alive: -1</code>), ładowanie modelu przy rozgrzewce</td><td><code>GuardModelClient</code></td></tr>
+<tr><td><code>adapters/fake_model.py</code></td><td>model i guard testowy; zapisują, co dostałby model</td><td><code>ModelClient</code>, <code>GuardModelClient</code></td></tr>
 <tr><td><code>adapters/policy_file.py</code></td><td>przeładowanie na żywo, ostatnia poprawna</td><td><code>PolicySource</code></td></tr>
 <tr><td><code>adapters/budget_memory.py</code></td><td>okno przesuwne per agent, odciski pętli</td><td><code>BudgetStore</code></td></tr>
+<tr><td><code>core/canary.py</code></td><td>C22: format tokenu kanarka i wstrzyknięcie do pierwszej wiadomości <code>system</code> tuż przed modelem; nigdy w odpowiedzi ani audycie</td><td>—</td></tr>
 <tr><td><code>adapters/audit_jsonl.py</code></td><td>JSONL z łańcuchem hashy, CLI <code>verify</code></td><td><code>AuditSink</code></td></tr>
 <tr><td><code>adapters/metrics_memory.py</code>, <code>dashboard/</code></td><td>liczniki, percentyle, dashboard, eksport</td><td><code>AuditSink</code></td></tr>
 <tr><td><code>adapters/audit_fanout.py</code></td><td>jedno zdarzenie do wielu odbiorców</td><td><code>AuditSink</code></td></tr>
@@ -600,7 +610,7 @@ controls:
 
 <section id="kontrole">
 <h3>Kontrole</h3>
-<p class="tldr">Dwanaście kontroli działa dziś. Limity, dostęp i budżety to etapy pipeline'u; kontrole treści to detektory włączane polityką. Detektory skanują wszystkie teksty żądania: każdą wiadomość (także <code>system</code>, historię i wyniki narzędzi), argumenty wywołań narzędzi i opisy narzędzi, bo tam chowa się pośredni prompt injection.</p>
+<p class="tldr">Trzynaście kontroli działa dziś. Limity, dostęp i budżety to etapy pipeline'u; kontrole treści to detektory włączane polityką. Detektory skanują wszystkie teksty żądania: każdą wiadomość (także <code>system</code>, historię i wyniki narzędzi), argumenty wywołań narzędzi i opisy narzędzi, bo tam chowa się pośredni prompt injection.</p>
 
 <div class="status-groups" id="katalog">
 <div>
@@ -612,6 +622,7 @@ controls:
 <li><code>C05</code> sekrety</li>
 <li><code>C06</code> heurystyki injection EN/PL</li>
 <li><code>C07</code> Prompt Guard 2 (domyślnie wyłączony, włączony w strict)</li>
+<li><code>C14</code> <code>egress</code>: eksfiltracja przez URL-e w odpowiedzi</li>
 <li><code>C15</code> budżet tokenów i kosztu</li>
 <li><code>C16</code> pętle agenta, limit żądań</li>
 <li><code>C17</code> limity wejścia, <code>max_tokens</code></li>
@@ -628,9 +639,9 @@ controls:
 <li><code>C10</code> sygnatury poleceń w argumentach narzędzi</li>
 <li><code>C11</code> niebezpieczna deserializacja</li>
 <li><code>C12</code> weryfikacja artefaktów modeli</li>
-<li><code>C14</code> egress w markdownie</li>
+<li><code>C14</code> <code>egress.tool</code>: URL-e w argumentach narzędzi (kontrola w polityce, włączenie z przypadkami narzędzi)</li>
 <li><code>C18</code> integralność feedu sygnatur</li>
-<li><code>C22</code> kanarek promptu systemowego</li>
+<li><code>C22</code> kanarek promptu systemowego (wstrzykiwanie w pipeline gotowe, detektor w toku)</li>
 </ul>
 </div>
 <div>
@@ -692,6 +703,17 @@ controls:
 <dt>Bez modelu</dt><dd>aplikacja startuje, włączona kontrola blokuje (fail-closed). Model pobiera <code>make models</code> z przypiętą rewizją i sha256</dd>
 <dt>Parametry</dt><dd><code>max_windows</code> (16), <code>roles</code> (<code>system</code>, <code>user</code>, <code>tool</code>), <code>scan_tool_descriptions</code>; tylko wejście</dd>
 <dt>Licencja</dt><dd>Llama 4 Community: wymagany napis <b>Built with Llama</b></dd>
+</dl>
+</div>
+
+<div class="sheet" id="c14">
+<div class="sheet-head"><h5>Egress</h5><code>C14 · egress, egress.tool</code><span class="b b-redact">egress: redact</span><span class="b b-block">egress.tool: block</span></div>
+<dl>
+<dt>Wykrywa</dt><dd>w wyjściu modelu: obrazy markdown, linki, <code>&lt;img src&gt;</code> i gołe URL-e do hostów spoza allowlisty; <code>egress.tool</code> to samo w argumentach wywołań narzędzi (np. <code>http_get</code> do atakującego)</dd>
+<dt>Jak</dt><dd>obraz poza allowlistą zawsze (wyciek bez kliknięcia: wystarczy, że klient wyrenderuje markdown); link i goły URL tylko z danymi (query, fragment, długie etykiety DNS). Przygotowanie URL-a jak w przeglądarce (WHATWG), więc <code>https://evil.io\@bank.example</code> nie przechodzi. Span obejmuje sam URL: po redakcji zostaje zepsuty obrazek, żadne żądanie nie wychodzi</dd>
+<dt>Allowlista</dt><dd>domyślnie zamknięta; dopasowanie na granicy etykiet (<code>bank.example</code> obejmuje <code>a.bank.example</code>, ale nie <code>evilbank.example</code>). W politykach: <code>bank.example</code>, <code>docs.python.org</code></dd>
+<dt>Parametry</dt><dd><code>allowed_domains</code>, <code>scan</code> (<code>content</code> | <code>tool_arguments</code>), <code>links</code> (<code>with_data</code> | <code>all</code>; strict: <code>all</code>)</dd>
+<dt>Plik</dt><dd><code>detectors/egress.py</code> · tagi <code>owasp.llm05-2025</code>, <code>owasp.llm02-2025</code>, <code>atlas.AML.T0077</code> (+ <code>T0086</code> dla narzędzi). <code>egress.tool</code> jest w politykach wyłączony, dopóki runner nie umie podać atrapy <code>tool_calls</code></dd>
 </dl>
 </div>
 </section>
@@ -792,7 +814,7 @@ controls:
 
 <section id="testy">
 <h3>Testy</h3>
-<p class="tldr">430 testów zielonych na <code>main</code> (24 pominięte, 17 znanych luk). Przypadki ataków i pułapek to dane w YAML; te same pliki działają offline w CI i przeciw żywej instancji.</p>
+<p class="tldr">542 testy zielone (58 pominiętych: przypadki kontroli wyłączonych w domyślnej polityce). Przypadki ataków i pułapek to dane w YAML; te same pliki działają offline w CI i przeciw żywej instancji.</p>
 
 <div class="cols-2">
 <div>
@@ -832,6 +854,7 @@ controls:
 <table>
 <tr><th>Plik</th><th>Liczba</th><th>Obszar</th></tr>
 <tr><td><code>injection.yaml</code></td><td>35</td><td>injection EN/PL, narzędzia</td></tr>
+<tr><td><code>harmful.yaml</code></td><td>30</td><td>treści szkodliwe (guard LLM; kontrola jeszcze wyłączona)</td></tr>
 <tr><td><code>kamil-injection-pl.yaml</code></td><td>20</td><td>polskie injection</td></tr>
 <tr><td><code>pii.yaml</code></td><td>15</td><td>PII, sumy kontrolne</td></tr>
 <tr><td><code>kamil-obfuscation.yaml</code></td><td>15</td><td>obfuskacja</td></tr>
@@ -842,6 +865,7 @@ controls:
 <tr><td><code>budget.yaml</code></td><td>6</td><td>budżety, pętle</td></tr>
 <tr><td><code>limits.yaml</code></td><td>4</td><td>rozmiar, <code>max_tokens</code></td></tr>
 <tr><td><code>policy.yaml</code></td><td>4</td><td>zmiany polityki</td></tr>
+<tr><td><code>egress.yaml</code></td><td>8</td><td>eksfiltracja przez URL-e w odpowiedzi</td></tr>
 </table>
 </div>
 <div>
@@ -857,15 +881,15 @@ controls:
 </div>
 </div>
 
-<h4>Znane luki detekcji (17 × <code>known-gap</code>)</h4>
-<p>Uczciwy obraz granic heurystyk. Parafrazy to zadanie dla Prompt Guarda albo guard LLM.</p>
+<h4>Luki zamknięte w trakcie hackathonu</h4>
+<p>17 przypadków Kamila oznaczonych <code>known-gap</code> pokazało granice heurystyk. Sebastian zamknął je wszystkie w detektorach (<code>b6cd482</code>), więc tag zdjęto, a przypadki pilnują teraz regresji:</p>
 <ul>
 <li>litery rozdzielone spacjami, myślnikami lub kropkami („Z i g n o r u j…”);</li>
 <li>leetspeak („1gn0r3 4ll pr3v10u5 1n57ruc710n5”);</li>
 <li>odwrócony tekst z poleceniem odwrócenia;</li>
 <li>cyrylickie „З” w miejscu „Z”;</li>
 <li>polskie parafrazy bez frazy kluczowej: tryb deweloperski, role-play, autorytet („na podstawie audytu KNF…”), atak „na babcię”, polecenie rozbite na dwie tury, fałszywy nagłówek kontekstu;</li>
-<li>pułapka PII: przykładowy telefon „123-456-789” jest redagowany, bo telefon nie ma sumy kontrolnej.</li>
+<li>pułapka PII: przykładowy telefon „123-456-789”.</li>
 </ul>
 </section>
 
