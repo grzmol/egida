@@ -11,6 +11,7 @@ Decyzje architektoniczne projektu. Plan: [`docs/PLAN.md`](../PLAN.md).
 | [0003](0003-polityka-jako-wersjonowany-kontrakt.md) | Polityka jako wersjonowany kontrakt z hot reloadem | Accepted | 2026-10-03 |
 | [0004](0004-semantyka-decyzji-i-obsluga-bledow.md) | Semantyka decyzji i jawna obsługa błędów kontroli | Accepted | 2026-10-03 |
 | [0005](0005-zaleznosci-i-modele-v1.md) | Zależności, modele i kontrakt odpowiedzi blokady v1 | Accepted | 2026-10-03 |
+| [0006](0006-guard-llm-tresc-szkodliwa.md) | Guard LLM dla treści szkodliwych (`llama-guard3:1b`) | Proposed | 2026-10-03 |
 
 ## Kiedy pisać ADR
 

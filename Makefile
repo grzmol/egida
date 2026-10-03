@@ -1,4 +1,4 @@
-.PHONY: check test run selftest verify-audit fmt models
+.PHONY: check test run selftest verify-audit fmt models docs
 
 UV := uv run
 TARGET ?= http://127.0.0.1:8080
@@ -29,3 +29,6 @@ fmt:
 
 models:
 	$(UV) python scripts/fetch_models.py
+
+docs:
+	python3 -m http.server --directory site --bind 127.0.0.1 8000
