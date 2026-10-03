@@ -23,29 +23,46 @@ CSV_COLUMNS = (
 )  # fmt: skip
 
 
+CSV_BATCH = 200
+
+
+def csv_row(line: bytes) -> list[object]:
+    """One CSV row per JSONL line; a broken line becomes an `invalid_line` row, not an error."""
+    try:
+        event = json.loads(line)
+        controls = ";".join(f"{x['control_id']}:{x['action']}" for x in event["findings"])
+        return [
+            event.get("seq"), event["ts"], event["type"], event.get("request_id"),
+            event.get("agent_id"), event.get("model"), event.get("decision"),
+            event.get("blocked_by"), controls, event.get("cost"),
+            event.get("latency_ms", {}).get("total"), event.get("hash"),
+        ]  # fmt: skip
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return ["", "", "invalid_line", *[""] * (len(CSV_COLUMNS) - 3)]
+
+
 def csv_rows(audit_path: Path) -> Iterator[str]:
-    """CSV text line by line; a partially written last JSONL line is skipped."""
+    """CSV text in batches; a partially written last JSONL line (no newline) is skipped.
+
+    The file is reopened for every batch and never open across a `yield`: an aborted download
+    stops the generator without closing it, and an open file would leak until the next GC.
+    """
     buffer = io.StringIO()
     writer = csv.writer(buffer)
     writer.writerow(CSV_COLUMNS)
-    with audit_path.open(encoding="utf-8") as f:
-        for line in f:
-            if not line.endswith("\n"):
-                break
-            event = json.loads(line)
-            controls = ";".join(f"{x['control_id']}:{x['action']}" for x in event["findings"])
-            writer.writerow(
-                [
-                    event.get("seq"), event["ts"], event["type"], event.get("request_id"),
-                    event.get("agent_id"), event.get("model"), event.get("decision"),
-                    event.get("blocked_by"), controls, event.get("cost"),
-                    event.get("latency_ms", {}).get("total"), event.get("hash"),
-                ]
-            )  # fmt: skip
-            yield buffer.getvalue()
-            buffer.seek(0)
-            buffer.truncate()
-    yield buffer.getvalue()
+    offset = 0
+    while True:
+        with audit_path.open("rb") as f:
+            f.seek(offset)
+            lines = [line for line in (f.readline() for _ in range(CSV_BATCH)) if line]
+            offset = f.tell()
+        complete = [line for line in lines if line.endswith(b"\n")]
+        writer.writerows(csv_row(line) for line in complete)
+        yield buffer.getvalue()
+        buffer.seek(0)
+        buffer.truncate()
+        if len(complete) < CSV_BATCH:
+            return
 
 
 def read_selftest(path: Path) -> dict[str, object] | None:
