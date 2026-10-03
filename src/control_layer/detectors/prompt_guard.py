@@ -7,6 +7,7 @@ loads the model before any policy exists. Built with Llama (Llama 4 Community Li
 
 import os
 import re
+from collections.abc import Sequence
 from functools import lru_cache
 from pathlib import Path
 from typing import ClassVar, Literal
@@ -17,13 +18,17 @@ import onnxruntime as ort  # type: ignore[import-untyped]  # no stubs upstream
 from pydantic import BaseModel, ConfigDict, Field
 from tokenizers import Tokenizer
 
-from control_layer.core.models import Category, Finding, Interaction
+from control_layer.core.models import Category, Finding, Interaction, Side
 from control_layer.core.ports import ScanContext
 from control_layer.core.texts import iter_texts
 
 MODEL_NAME = "prompt-guard-2-86m"
 MALICIOUS = 1  # config.json id2label: {"0": "BENIGN", "1": "MALICIOUS"}
-WINDOW_TOKENS, WINDOW_OVERLAP = 512, 64  # 512 = model context; overlap catches split phrases
+# Two passes over each text: model-size windows, and single sentences, so one attack sentence
+# inside a long benign document is not diluted (a 512-token window scores it ~0.01).
+LONG_WINDOW, LONG_STEP = 510, 446  # content tokens; [CLS] + 510 + [SEP] = 512 = model context
+SENTENCE_TOKENS, SENTENCE_MAX = 62, 256
+_SENTENCE_END = re.compile(r"(?<=[.!?;:])\s+|\n+")
 TAGS = ("owasp.llm01-2025", "asi.asi01", "atlas.AML.T0051")
 _MESSAGE = re.compile(r"messages\[(\d+)\]\.content")
 _TOOL_DESCRIPTION = re.compile(r"tools\[\d+\]\.description")
@@ -53,6 +58,15 @@ def selected_texts(
     return chosen
 
 
+def windows(ids: list[int], size: int, step: int, limit: int) -> tuple[list[list[int]], bool]:
+    """Overlapping slices of `ids`; past `limit`, keep head and tail (attacks hide at ends)."""
+    chunks = [ids[i : i + size] for i in range(0, max(len(ids) - size, 0) + step, step)]
+    chunks = [c for c in chunks if c] or [[]]
+    if len(chunks) <= limit:
+        return chunks, False
+    return chunks[: limit // 2] + chunks[-(limit - limit // 2) :], True
+
+
 @lru_cache(maxsize=2)
 def load_model(root: Path) -> tuple[ort.InferenceSession, Tokenizer]:
     """One session per model directory per process: loading costs ~0.3 s and 300 MB."""
@@ -64,8 +78,8 @@ def load_model(root: Path) -> tuple[ort.InferenceSession, Tokenizer]:
     options.intra_op_num_threads = 4  # x2 concurrent scans (limiter) = 8 cores
     session = ort.InferenceSession(str(model), options, providers=["CPUExecutionProvider"])
     tokenizer = Tokenizer.from_file(str(tokenizer_path))
-    tokenizer.no_padding()  # the export pads to 512; short prompts run 20x faster
-    tokenizer.enable_truncation(WINDOW_TOKENS, stride=WINDOW_OVERLAP)
+    tokenizer.no_padding()  # windows are built by hand; the export pads every input to 512
+    tokenizer.no_truncation()
     return session, tokenizer
 
 
@@ -76,43 +90,75 @@ class PromptGuardDetector:
     def __init__(self, model_dir: Path | None = None) -> None:
         root = model_dir or Path(os.environ.get("CONTROL_LAYER_MODELS_DIR", "models")) / MODEL_NAME
         self._session, self._tokenizer = load_model(root.resolve())
+        cls, sep = self._tokenizer.token_to_id("[CLS]"), self._tokenizer.token_to_id("[SEP]")
+        if cls is None or sep is None:
+            raise ValueError(f"{root}/tokenizer.json has no [CLS]/[SEP] tokens")
+        self._cls: int = cls
+        self._sep: int = sep
         self._limiter: anyio.CapacityLimiter | None = None
+        # History messages repeat on every agent turn: score each distinct text once.
+        self._cached = lru_cache(maxsize=4096)(self._probability)
+
+    def _batch(self, chunks: Sequence[Sequence[int]]) -> float:
+        """Max P(MALICIOUS) over one batch of windows (right-padded, masked)."""
+        width = max(len(c) for c in chunks) + 2
+        ids = np.zeros((len(chunks), width), dtype=np.int64)
+        mask = np.zeros((len(chunks), width), dtype=np.int64)
+        for row, chunk in enumerate(chunks):
+            tokens = [self._cls, *chunk, self._sep]
+            ids[row, : len(tokens)] = tokens
+            mask[row, : len(tokens)] = 1
+        logits = self._session.run(None, {"input_ids": ids, "attention_mask": mask})[0]
+        exp = np.exp(logits - logits.max(axis=1, keepdims=True))
+        return float((exp[:, MALICIOUS] / exp.sum(axis=1)).max())
+
+    def _probability(self, text: str, max_windows: int) -> tuple[float, int, bool]:
+        ids = self._tokenizer.encode(text, add_special_tokens=False).ids
+        long, long_cut = windows(ids, LONG_WINDOW, LONG_STEP, max_windows)
+        best = max(self._batch(long[i : i + 4]) for i in range(0, len(long), 4))
+        used, cut = len(long), long_cut
+        sentences = [x for x in _SENTENCE_END.split(text) if x.strip()]
+        if len(sentences) > 1:
+            pieces: list[Sequence[int]] = []
+            for encoding in self._tokenizer.encode_batch(sentences, add_special_tokens=False):
+                pieces += windows(encoding.ids, SENTENCE_TOKENS, SENTENCE_TOKENS, 4)[0]
+            if len(pieces) > SENTENCE_MAX:
+                pieces = pieces[: SENTENCE_MAX // 2] + pieces[-SENTENCE_MAX // 2 :]
+                cut = True
+            # Repeated sentences are scored once; sorting by length keeps batch padding small.
+            pieces = sorted({tuple(piece) for piece in pieces}, key=len)
+            best = max(best, *(self._batch(pieces[i : i + 64]) for i in range(0, len(pieces), 64)))
+            used += len(pieces)
+        return best, used, cut
 
     def malicious_probability(self, text: str, max_windows: int) -> tuple[float, int]:
-        """Max P(MALICIOUS) over overlapping token windows, and the number of windows scored."""
-        first = self._tokenizer.encode(text)
-        windows = [first, *first.overflowing]
-        if len(windows) > max_windows:  # keep head and tail: attacks hide at either end
-            windows = windows[: max_windows // 2] + windows[-(max_windows - max_windows // 2) :]
-        best = 0.0
-        for window in windows:
-            feed = {
-                "input_ids": np.array([window.ids], dtype=np.int64),
-                "attention_mask": np.array([window.attention_mask], dtype=np.int64),
-            }
-            logits = self._session.run(None, feed)[0][0]
-            exp = np.exp(logits - logits.max())
-            best = max(best, float(exp[MALICIOUS] / exp.sum()))
-        return best, len(windows)
+        """Max P(MALICIOUS) over long and short windows, and the number of windows scored."""
+        best, used, _ = self._cached(text, max_windows)
+        return best, used
 
     def _scan(self, ctx: ScanContext, texts: list[tuple[str, str]]) -> list[Finding]:
         params = ctx.params
         if not isinstance(params, PromptGuardParams):
             raise TypeError(f"expected PromptGuardParams, got {type(params).__name__}")
-        best, best_target, windows = 0.0, "", 0
+        if ctx.side is not Side.INPUT:
+            raise ValueError("prompt_guard classifies inputs only; set `sides: [input]`")
+        best, best_target, used, truncated = 0.0, "", 0, False
         for target, text in selected_texts(ctx.interaction, texts, params):
-            score, used = self.malicious_probability(text, params.max_windows)
-            windows += used
+            score, n, cut = self._cached(text, params.max_windows)
+            used, truncated = used + n, truncated or cut
             if score >= best:
                 best, best_target = score, target
         if not best_target:
             return []
+        evidence = f"{best_target} p={best:.2f} windows={used}" + (
+            " truncated" if truncated else ""
+        )
         return [
             Finding(
                 control_id=ctx.control_id,
                 category=Category.INJECTION,
                 score=best,
-                evidence=f"{best_target} p={best:.2f} windows={windows}",
+                evidence=evidence,
                 tags=TAGS,
             )
         ]
