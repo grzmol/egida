@@ -20,9 +20,14 @@ _CONFUSABLES = str.maketrans(
         "һ": "h", "ӏ": "l", "ԛ": "q", "ԝ": "w", "ɡ": "g",
         "α": "a", "β": "b", "ε": "e", "ι": "i", "κ": "k", "ν": "v", "ο": "o", "ρ": "p",
         "τ": "t", "υ": "u", "χ": "x",
-        "ł": "l",
+        "ł": "l", "ı": "i",
+        **dict(zip("ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘʀꜱᴛᴜᴠᴡʏᴢ", "abcdefghijklmnoprstuvwyz", strict=True)),
+        # squared / negative circled / negative squared Latin letters (🄰, 🅐, 🅰), not folded by NFKC
+        **{chr(b + i): chr(ord("a") + i) for b in (0x1F130, 0x1F150, 0x1F170) for i in range(26)},
     }
 )  # fmt: skip
+# Invisible characters that attackers also use as word separators ("Ignore\u200ball").
+_INVISIBLE_SPACES = re.compile("[\u200b\u2060\u3164\u115f\u1160\uffa0\u2800]")
 
 # Unicode category Cf (format: zero-width, bidi, tag characters); test pins it to unicodedata.
 _FORMAT_CHARS = re.compile(
@@ -96,5 +101,7 @@ def mixed_script_words(text: str) -> int:
 def views(text: str) -> list[tuple[str, str]]:
     """(kind, normalized text) for the text itself, its ROT13 and each decoded base64 segment."""
     variants = [("text", text), ("rot13", codecs.encode(text, "rot13"))]
+    if _INVISIBLE_SPACES.search(text):
+        variants.append(("spaced", _INVISIBLE_SPACES.sub(" ", text)))
     variants += [("base64", segment) for segment in decoded_segments(text)]
     return [(kind, normalize(v)) for kind, v in variants]
