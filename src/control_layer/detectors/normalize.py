@@ -16,7 +16,7 @@ import unicodedata
 _CONFUSABLES = str.maketrans(
     {
         "а": "a", "в": "b", "е": "e", "к": "k", "м": "m", "н": "h", "о": "o", "р": "p",
-        "с": "c", "т": "t", "у": "y", "х": "x", "і": "i", "ј": "j", "ѕ": "s", "ԁ": "d",
+        "с": "c", "з": "z", "т": "t", "у": "y", "х": "x", "і": "i", "ј": "j", "ѕ": "s", "ԁ": "d",
         "һ": "h", "ӏ": "l", "ԛ": "q", "ԝ": "w", "ɡ": "g",
         "α": "a", "β": "b", "ε": "e", "ι": "i", "κ": "k", "ν": "v", "ο": "o", "ρ": "p",
         "τ": "t", "υ": "u", "χ": "x",
@@ -98,10 +98,39 @@ def mixed_script_words(text: str) -> int:
     return count
 
 
+# "Z i g n o r u j", "Z.i.g.n.o.r.u.j", "Z-i-g-n-o-r-u-j": single letters joined by one separator.
+_LETTER_RUN = re.compile(r"(?<!\w)(?:\w[ .\-_*]){3,}\w(?!\w)")
+_LETTER_SEPARATOR = re.compile(r"[ .\-_*]")
+_NON_SPACE_SEPARATOR = re.compile(r"[.\-_*]")
+
+
+def _join_letters(run: str) -> str:
+    """Drop the separator between letters; with "-" or "." as separator, spaces stay word gaps."""
+    if _NON_SPACE_SEPARATOR.search(run):
+        return _NON_SPACE_SEPARATOR.sub("", run)
+    return _LETTER_SEPARATOR.sub("", run)
+
+
+# Leetspeak only inside words that mix letters and digits ("1gn0r3", "w5zy5tk13"), so plain
+# numbers and the Polish conjunction "i" written as "1" stay untouched.
+_MIXED_WORD = re.compile(r"\b(?=\w*[^\W\d_])(?=\w*\d)\w+\b")
+_LEET = str.maketrans("013457@$", "oieastas")
+
+
 def views(text: str) -> list[tuple[str, str]]:
-    """(kind, normalized text) for the text itself, its ROT13 and each decoded base64 segment."""
-    variants = [("text", text), ("rot13", codecs.encode(text, "rot13"))]
+    """(kind, normalized text) for the text and its decoded forms: ROT13, reversed, letter runs
+    joined, leetspeak, invisible separators as spaces, and each decoded base64 segment."""
+    variants = [
+        ("text", text),
+        ("rot13", codecs.encode(text, "rot13")),
+        ("reversed", text[::-1]),
+    ]
     if _INVISIBLE_SPACES.search(text):
         variants.append(("spaced", _INVISIBLE_SPACES.sub(" ", text)))
+    if _LETTER_RUN.search(text):
+        joined = _LETTER_RUN.sub(lambda m: _join_letters(m.group()), text)
+        variants.append(("joined", joined))
+    if _MIXED_WORD.search(text):
+        variants.append(("leet", _MIXED_WORD.sub(lambda m: m.group().translate(_LEET), text)))
     variants += [("base64", segment) for segment in decoded_segments(text)]
     return [(kind, normalize(v)) for kind, v in variants]
