@@ -9,10 +9,10 @@ from pathlib import Path
 
 import pytest
 
-from control_layer.adapters.audit_fanout import FanoutAuditSink
-from control_layer.adapters.audit_jsonl import AuditError, AuditJsonl, line_hash, verify_file
-from control_layer.core.audit import AuditEvent
-from control_layer.core.models import Action
+from egida.adapters.audit_fanout import FanoutAuditSink
+from egida.adapters.audit_jsonl import AuditError, AuditJsonl, line_hash, verify_file
+from egida.core.audit import AuditEvent
+from egida.core.models import Action
 
 pytestmark = pytest.mark.anyio
 
@@ -41,7 +41,7 @@ def _write(path: Path, lines: list[str]) -> None:
 
 def _cli(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603 (fixed argv, no shell)
-        [sys.executable, "-m", "control_layer.adapters.audit_jsonl", *args],
+        [sys.executable, "-m", "egida.adapters.audit_jsonl", *args],
         capture_output=True,
         text=True,
         check=False,

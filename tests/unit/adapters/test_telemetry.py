@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from control_layer.adapters.telemetry import (
+from egida.adapters.telemetry import (
     StageStats,
     TelemetrySink,
     TelemetrySnapshot,
@@ -14,9 +14,9 @@ from control_layer.adapters.telemetry import (
     render_prometheus,
     snapshot_to_json,
 )
-from control_layer.core.audit import AuditEvent, FindingSummary
-from control_layer.core.models import Action, Category
-from control_layer.core.ports import Clock
+from egida.core.audit import AuditEvent, FindingSummary
+from egida.core.models import Action, Category
+from egida.core.ports import Clock
 
 pytestmark = pytest.mark.anyio
 
@@ -115,34 +115,34 @@ async def test_render_prometheus_format(clock: Clock) -> None:
         )
     )
     assert render_prometheus(sink.snapshot()) == (
-        "# HELP control_layer_stage_latency_seconds Per-stage latency"
+        "# HELP egida_stage_latency_seconds Per-stage latency"
         " (quantiles over last N samples).\n"
-        "# TYPE control_layer_stage_latency_seconds summary\n"
-        'control_layer_stage_latency_seconds{stage="total",quantile="0.5"} 0.1\n'
-        'control_layer_stage_latency_seconds{stage="total",quantile="0.95"} 0.1\n'
-        'control_layer_stage_latency_seconds_sum{stage="total"} 0.1\n'
-        'control_layer_stage_latency_seconds_count{stage="total"} 1\n'
-        'control_layer_stage_latency_seconds{stage="overhead",quantile="0.5"} 0.02\n'
-        'control_layer_stage_latency_seconds{stage="overhead",quantile="0.95"} 0.02\n'
-        'control_layer_stage_latency_seconds_sum{stage="overhead"} 0.02\n'
-        'control_layer_stage_latency_seconds_count{stage="overhead"} 1\n'
-        'control_layer_stage_latency_seconds{stage="upstream",quantile="0.5"} 0.08\n'
-        'control_layer_stage_latency_seconds{stage="upstream",quantile="0.95"} 0.08\n'
-        'control_layer_stage_latency_seconds_sum{stage="upstream"} 0.08\n'
-        'control_layer_stage_latency_seconds_count{stage="upstream"} 1\n'
-        'control_layer_stage_latency_seconds{stage="input:pii",quantile="0.5"} 0.0005\n'
-        'control_layer_stage_latency_seconds{stage="input:pii",quantile="0.95"} 0.0005\n'
-        'control_layer_stage_latency_seconds_sum{stage="input:pii"} 0.0005\n'
-        'control_layer_stage_latency_seconds_count{stage="input:pii"} 1\n'
-        "# HELP control_layer_decisions_total Decisions by action.\n"
-        "# TYPE control_layer_decisions_total counter\n"
-        'control_layer_decisions_total{decision="redact"} 1\n'
-        "# HELP control_layer_findings_total Findings by control and resulting action.\n"
-        "# TYPE control_layer_findings_total counter\n"
-        'control_layer_findings_total{control_id="pii",action="redact"} 1\n'
-        "# HELP control_layer_audit_events_total Audit events by type.\n"
-        "# TYPE control_layer_audit_events_total counter\n"
-        'control_layer_audit_events_total{type="decision"} 1\n'
+        "# TYPE egida_stage_latency_seconds summary\n"
+        'egida_stage_latency_seconds{stage="total",quantile="0.5"} 0.1\n'
+        'egida_stage_latency_seconds{stage="total",quantile="0.95"} 0.1\n'
+        'egida_stage_latency_seconds_sum{stage="total"} 0.1\n'
+        'egida_stage_latency_seconds_count{stage="total"} 1\n'
+        'egida_stage_latency_seconds{stage="overhead",quantile="0.5"} 0.02\n'
+        'egida_stage_latency_seconds{stage="overhead",quantile="0.95"} 0.02\n'
+        'egida_stage_latency_seconds_sum{stage="overhead"} 0.02\n'
+        'egida_stage_latency_seconds_count{stage="overhead"} 1\n'
+        'egida_stage_latency_seconds{stage="upstream",quantile="0.5"} 0.08\n'
+        'egida_stage_latency_seconds{stage="upstream",quantile="0.95"} 0.08\n'
+        'egida_stage_latency_seconds_sum{stage="upstream"} 0.08\n'
+        'egida_stage_latency_seconds_count{stage="upstream"} 1\n'
+        'egida_stage_latency_seconds{stage="input:pii",quantile="0.5"} 0.0005\n'
+        'egida_stage_latency_seconds{stage="input:pii",quantile="0.95"} 0.0005\n'
+        'egida_stage_latency_seconds_sum{stage="input:pii"} 0.0005\n'
+        'egida_stage_latency_seconds_count{stage="input:pii"} 1\n'
+        "# HELP egida_decisions_total Decisions by action.\n"
+        "# TYPE egida_decisions_total counter\n"
+        'egida_decisions_total{decision="redact"} 1\n'
+        "# HELP egida_findings_total Findings by control and resulting action.\n"
+        "# TYPE egida_findings_total counter\n"
+        'egida_findings_total{control_id="pii",action="redact"} 1\n'
+        "# HELP egida_audit_events_total Audit events by type.\n"
+        "# TYPE egida_audit_events_total counter\n"
+        'egida_audit_events_total{type="decision"} 1\n'
     )
 
 

@@ -2,7 +2,7 @@ from collections.abc import Callable
 
 import pytest
 
-from control_layer.detectors.validators import (
+from egida.detectors.validators import (
     is_card,
     is_iban,
     is_nip,

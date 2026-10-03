@@ -1,6 +1,6 @@
-# AI Control Layer stack. Owner: Maciej (Dev D). Spec: docs/tasks/grzegorz/A7-compose-i-audyt-dlugu.md §3.
+# Egida stack. Owner: Maciej (Dev D). Spec: docs/tasks/grzegorz/A7-compose-i-audyt-dlugu.md §3.
 # Run: docker compose up --build. Proxy on 127.0.0.1:8080; Ollama reachable only inside the Compose network (D01).
-name: control-layer
+name: egida
 
 services:
   app:
@@ -10,10 +10,10 @@ services:
     ports:
       - "127.0.0.1:8080:8080"           # host loopback only
     environment:
-      CONTROL_LAYER_POLICY: /app/config/policy.compose.yaml
-      CONTROL_LAYER_AUDIT: /app/var/audit.jsonl
-      CONTROL_LAYER_FEED: /app/signatures/feed.yaml
-      CONTROL_LAYER_GUARD_URL: http://ollama:11434   # guard models (B6); the default 127.0.0.1 is the container itself
+      EGIDA_POLICY: /app/config/policy.compose.yaml
+      EGIDA_AUDIT: /app/var/audit.jsonl
+      EGIDA_FEED: /app/signatures/feed.yaml
+      EGIDA_GUARD_URL: http://ollama:11434   # guard models (B6); the default 127.0.0.1 is the container itself
     volumes:
       - ./config:/app/config:ro          # a DIRECTORY, not the file: editors save by rename, polling must see it
       - ./signatures:/app/signatures:ro  # same for the signature feed (demo W2 edits it live)

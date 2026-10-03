@@ -1,9 +1,9 @@
 import pytest
 from pydantic import ValidationError
 
-from control_layer.core.models import Category, Interaction, Message, Side, ToolCall
-from control_layer.core.ports import ScanContext
-from control_layer.detectors.harmful_content import (
+from egida.core.models import Category, Interaction, Message, Side, ToolCall
+from egida.core.ports import ScanContext
+from egida.detectors.harmful_content import (
     GuardOutputError,
     HarmfulContentDetector,
     HarmfulContentParams,

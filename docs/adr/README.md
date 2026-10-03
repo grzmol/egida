@@ -13,6 +13,8 @@ Decyzje architektoniczne projektu. Plan: [`docs/PLAN.md`](../PLAN.md).
 | [0005](0005-zaleznosci-i-modele-v1.md) | Zależności, modele i kontrakt odpowiedzi blokady v1 | Accepted | 2026-10-03 |
 | [0006](0006-guard-llm-tresc-szkodliwa.md) | Guard LLM dla treści szkodliwych (`llama-guard3:1b`) | Proposed | 2026-10-03 |
 | [0007](0007-egida-konfigurator-polityki.md) | Egida: konfiguracja i uruchamianie AI Control Layer w terminalu (ruamel.yaml) | Accepted | 2026-10-03 |
+| [0008](0008-rebrand-egida.md) | Zmiana nazwy produktu na Egida (pakiet, polecenie `egd`, kontrakt HTTP, zmienne środowiskowe) | Accepted | 2026-10-03 |
+| [0009](0009-harnessy-i-protokoly.md) | Harnessy i protokoły: wejścia Anthropic Messages, OpenAI Responses i Gemini, kreator w konsoli (tomlkit) | Accepted | 2026-10-04 |
 
 ## Kiedy pisać ADR
 

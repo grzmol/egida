@@ -10,12 +10,12 @@ from typing import Any, ClassVar
 import pytest
 from pydantic import BaseModel, ConfigDict
 
-from control_layer.adapters.budget_memory import InMemoryBudgetStore
-from control_layer.adapters.fake_model import FakeModelClient
-from control_layer.adapters.tool_pins_memory import InMemoryToolPinStore
-from control_layer.core.audit import AuditEvent
-from control_layer.core.errors import UpstreamError
-from control_layer.core.models import (
+from egida.adapters.budget_memory import InMemoryBudgetStore
+from egida.adapters.fake_model import FakeModelClient
+from egida.adapters.tool_pins_memory import InMemoryToolPinStore
+from egida.core.audit import AuditEvent
+from egida.core.errors import UpstreamError
+from egida.core.models import (
     Action,
     Category,
     Finding,
@@ -25,9 +25,9 @@ from control_layer.core.models import (
     ToolCall,
     ToolDef,
 )
-from control_layer.core.pipeline import Pipeline
-from control_layer.core.policy import build_policy
-from control_layer.core.ports import PolicySnapshot, ScanContext
+from egida.core.pipeline import Pipeline
+from egida.core.policy import build_policy
+from egida.core.ports import PolicySnapshot, ScanContext
 
 pytestmark = pytest.mark.anyio
 
@@ -113,7 +113,7 @@ def _finding(ctx: ScanContext, score: float = 1.0, spans: tuple[Span, ...] = ())
 
 
 def _span_on(ctx: ScanContext, needle: str) -> tuple[Span, ...]:
-    from control_layer.core.texts import iter_texts
+    from egida.core.texts import iter_texts
 
     for target, text in iter_texts(ctx.interaction, ctx.side):
         i = text.find(needle)

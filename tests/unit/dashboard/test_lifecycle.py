@@ -15,10 +15,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from control_layer.adapters.metrics_memory import MetricsMemory
-from control_layer.core.audit import AuditEvent, AuditEventType
-from control_layer.core.models import Action
-from control_layer.dashboard import build_router
+from egida.adapters.metrics_memory import MetricsMemory
+from egida.core.audit import AuditEvent, AuditEventType
+from egida.core.models import Action
+from egida.dashboard import build_router
 
 FD_DIR = Path("/dev/fd")
 

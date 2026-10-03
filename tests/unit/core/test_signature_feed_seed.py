@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 import yaml
 
-from control_layer.core.signatures import CompiledRule, compile_feed, match_unit_text
+from egida.core.signatures import CompiledRule, compile_feed, match_unit_text
 
 ROOT = Path(__file__).resolve().parents[3]
 FEED = ROOT / "signatures" / "feed.yaml"

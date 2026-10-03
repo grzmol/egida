@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 
-from control_layer.core.models import Interaction, Message, ToolCall, ToolDef
-from control_layer.core.tools import (
+from egida.core.models import Interaction, Message, ToolCall, ToolDef
+from egida.core.tools import (
     check_duplicate_tools,
     check_tools_input,
     check_tools_output,

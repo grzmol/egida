@@ -1,7 +1,7 @@
 [project]
-name = "control-layer"
-version = "0.1.0"
-description = "AI Control Layer: policy-driven gateway that inspects, redacts and blocks agentic AI traffic (HackYeah 2026)."
+name = "egida"
+version = "0.2.0"
+description = "Egida: policy-driven proxy that inspects, redacts and blocks agentic AI traffic, with a terminal console (HackYeah 2026)."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
@@ -16,11 +16,12 @@ dependencies = [
     "ruamel-yaml>=0.19.1",
     "starlette>=1.7.0",
     "tokenizers>=0.23.2",
+    "tomlkit>=0.13",
     "uvicorn[standard]>=0.54.0",
 ]
 
 [project.scripts]
-egida = "control_layer.egida.__main__:main"
+egd = "egida.console.__main__:main"
 
 [build-system]
 requires = ["uv_build>=0.9,<0.13"]
@@ -43,7 +44,7 @@ files = ["src"]
 warn_unused_configs = true
 
 [[tool.mypy.overrides]]
-module = "control_layer.core.*"
+module = "egida.core.*"
 strict = true
 
 [tool.pytest.ini_options]
@@ -54,13 +55,13 @@ markers = [
 ]
 
 [tool.importlinter]
-root_package = "control_layer"
+root_package = "egida"
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
 name = "core is framework-free"
 type = "forbidden"
-source_modules = ["control_layer.core"]
+source_modules = ["egida.core"]
 forbidden_modules = [
     "fastapi",
     "starlette",
@@ -70,17 +71,17 @@ forbidden_modules = [
     "ruamel",
     "onnxruntime",
     "tokenizers",
-    "control_layer.adapters",
-    "control_layer.detectors",
-    "control_layer.app",
-    "control_layer.egida",
+    "egida.adapters",
+    "egida.detectors",
+    "egida.app",
+    "egida.console",
 ]
 
 [[tool.importlinter.contracts]]
 name = "detectors do not reach adapters, app or HTTP"
 type = "forbidden"
-source_modules = ["control_layer.detectors"]
-forbidden_modules = ["control_layer.adapters", "control_layer.app", "fastapi", "httpx"]
+source_modules = ["egida.detectors"]
+forbidden_modules = ["egida.adapters", "egida.app", "fastapi", "httpx"]
 
 [dependency-groups]
 dev = [

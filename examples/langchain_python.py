@@ -1,4 +1,4 @@
-"""LangChain ChatOpenAI behind the AI Control Layer: the only change is base_url + api_key.
+"""LangChain ChatOpenAI behind the Egida: the only change is base_url + api_key.
 
 uv run --no-project --with langchain-openai python examples/langchain_python.py
 """
@@ -9,8 +9,8 @@ from langchain_openai import ChatOpenAI
 
 llm = ChatOpenAI(
     model="llama3.2:3b",
-    base_url=os.environ.get("CONTROL_LAYER_URL", "http://127.0.0.1:8080/v1"),
-    api_key=os.environ.get("CONTROL_LAYER_KEY", "sk-demo-agent"),
+    base_url=os.environ.get("EGIDA_URL", "http://127.0.0.1:8080/v1"),
+    api_key=os.environ.get("EGIDA_KEY", "sk-demo-agent"),
     max_retries=0,  # retries would count twice against the agent's budget
 )
 

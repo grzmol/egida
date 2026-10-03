@@ -8,10 +8,10 @@ import anyio
 import numpy as np
 import pytest
 
-from control_layer.core.models import Interaction, Message, Side
-from control_layer.core.ports import ScanContext
-from control_layer.detectors import prompt_guard
-from control_layer.detectors.prompt_guard import PromptGuardDetector, PromptGuardParams
+from egida.core.models import Interaction, Message, Side
+from egida.core.ports import ScanContext
+from egida.detectors import prompt_guard
+from egida.detectors.prompt_guard import PromptGuardDetector, PromptGuardParams
 
 INFERENCE_S, TIMEOUT_S = 0.4, 0.05
 

@@ -1,4 +1,4 @@
-"""Demo agent with tools behind the AI Control Layer. Owner: Maciej (Dev D). Spec: B7 §4, D3.
+"""Demo agent with tools behind the Egida. Owner: Maciej (Dev D). Spec: B7 §4, D3.
 
 The only proxy configuration is `base_url`. Tools are sandboxed fakes: no disk, no network.
 The critical step (reading a poisoned file) is a prefetch by this orchestrator, not a model
@@ -163,7 +163,7 @@ def call(
     tools: list[dict[str, Any]],
     receipt: Receipt,
 ) -> Any:
-    """One chat call; fills the receipt from X-Control-* headers and the control_layer field."""
+    """One chat call; fills the receipt from X-Egida-* headers and the egida field."""
     start = time.monotonic()
     raw = client.chat.completions.with_raw_response.create(
         model=model,
@@ -172,9 +172,9 @@ def call(
     )
     receipt.ms += int((time.monotonic() - start) * 1000)
     completion = raw.parse()
-    layer = (completion.model_extra or {}).get("control_layer") or {}
-    receipt.decision = raw.headers.get("X-Control-Decision", "-")
-    receipt.request_id = raw.headers.get("X-Control-Request-Id", "-")
+    layer = (completion.model_extra or {}).get("egida") or {}
+    receipt.decision = raw.headers.get("X-Egida-Decision", "-")
+    receipt.request_id = raw.headers.get("X-Egida-Request-Id", "-")
     receipt.blocked_by = layer.get("blocked_by")
     receipt.controls = sorted({c["id"] for c in layer.get("controls", [])})
     return completion
@@ -318,7 +318,7 @@ def matches(scene: Scene, r: Receipt) -> bool:
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
     p.add_argument("--base-url", default="http://127.0.0.1:8080/v1")
-    p.add_argument("--key", default=os.environ.get("CONTROL_LAYER_DEMO_KEY", "sk-tools-agent"))
+    p.add_argument("--key", default=os.environ.get("EGIDA_DEMO_KEY", "sk-tools-agent"))
     p.add_argument("--model", default="llama3.2:3b")
     p.add_argument("--scene", default="all", help="all or comma-separated: " + ",".join(SCENES))
     p.add_argument("--max-steps", type=int, default=3)

@@ -1,4 +1,4 @@
-"""Load benchmark for the AI Control Layer. Owner: Maciej (Dev D). Spec: A6 §5, D5.
+"""Load benchmark for the Egida. Owner: Maciej (Dev D). Spec: A6 §5, D5.
 
     uv run python scripts/bench.py --target http://127.0.0.1:8080 --key sk-bench-agent \
       --model llama3.2:3b --requests 60 --concurrency 4 --max-tokens 16 --warmup 2 \
@@ -39,12 +39,12 @@ Percentile = Callable[[Sequence[float], float], float | None]
 @dataclass(frozen=True)
 class Sample:
     ms: float
-    decision: str | None  # X-Control-Decision; None when the request failed
+    decision: str | None  # X-Egida-Decision; None when the request failed
     error: str | None = None
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="AI Control Layer load benchmark (bench.v1)")
+    p = argparse.ArgumentParser(description="Egida load benchmark (bench.v1)")
     p.add_argument("--target", default="http://127.0.0.1:8080")
     p.add_argument("--key", default="sk-bench-agent")
     p.add_argument("--model", default="llama3.2:3b")
@@ -134,7 +134,7 @@ async def _one(
         ms = (time.perf_counter() - start) * 1000
     if resp.status_code != 200:
         return Sample(ms, None, f"http_{resp.status_code}")
-    return Sample(ms, resp.headers.get("X-Control-Decision"))
+    return Sample(ms, resp.headers.get("X-Egida-Decision"))
 
 
 async def run(args: argparse.Namespace, percentile: Percentile) -> dict[str, Any]:
@@ -183,9 +183,9 @@ def print_table(result: dict[str, Any]) -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        from control_layer.adapters.telemetry import percentile  # single implementation (A6)
+        from egida.adapters.telemetry import percentile  # single implementation (A6)
     except ImportError as exc:
-        print(f"bench needs control_layer.adapters.telemetry (A6): {exc}", file=sys.stderr)
+        print(f"bench needs egida.adapters.telemetry (A6): {exc}", file=sys.stderr)
         return 2
 
     result = asyncio.run(run(args, percentile))

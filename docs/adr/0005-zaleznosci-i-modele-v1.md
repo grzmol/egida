@@ -1,6 +1,6 @@
 # ADR-0005: Zależności, modele i kontrakt odpowiedzi blokady v1
 
-**Status**: Accepted
+**Status**: Accepted. Nazwy nagłówków, pola odpowiedzi i zmiennych środowiskowych zmienia ADR-0008.
 **Data**: 2026-10-03
 **Decydują**: Grzegorz, Sebastian
 

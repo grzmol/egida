@@ -1,4 +1,4 @@
-.PHONY: check test run selftest verify-audit fmt models docs bench egida
+.PHONY: check test run selftest verify-audit fmt models docs bench egd install
 
 UV := uv run
 TARGET ?= http://127.0.0.1:8080
@@ -14,21 +14,25 @@ test:
 	$(UV) pytest -q
 
 run:
-	$(UV) uvicorn control_layer.app:create_app --factory --host 127.0.0.1 --port 8080
+	$(UV) uvicorn egida.app:create_app --factory --host 127.0.0.1 --port 8080
 
-# Egida: configure the policy and the run profile (config/egida.yaml), start and watch the proxy
-egida:
-	$(UV) egida
+# Egida console: policy, run settings, starts and watches the proxy
+egd:
+	$(UV) egd
+
+# Puts egd on PATH. Run egd from the repo root: paths in the profile are relative.
+install:
+	uv tool install --force --editable .
 
 # Live selftest runs as selftest-agent (own budget), so it never uses up demo-agent's budget.
-selftest: export CONTROL_LAYER_SELFTEST_AGENT ?= selftest-agent
+selftest: export EGIDA_SELFTEST_AGENT ?= selftest-agent
 selftest:
 	mkdir -p var
 	$(UV) pytest -q tests/test_cases.py --target $(TARGET) --junitxml=var/selftest.xml
 
-AUDIT ?= $(or $(CONTROL_LAYER_AUDIT),var/audit.jsonl)
+AUDIT ?= $(or $(EGIDA_AUDIT),var/audit.jsonl)
 verify-audit:
-	$(UV) python -m control_layer.adapters.audit_jsonl verify $(AUDIT)
+	$(UV) python -m egida.adapters.audit_jsonl verify $(AUDIT)
 
 fmt:
 	$(UV) ruff format .

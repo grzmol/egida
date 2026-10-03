@@ -12,14 +12,14 @@ import yaml
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, ConfigDict
 
-from control_layer.adapters.audit_jsonl import verify_file
-from control_layer.adapters.fake_model import FakeGuardModelClient, FakeModelClient
-from control_layer.app import Settings, create_app
-from control_layer.core.errors import PolicyError
-from control_layer.core.models import Category, Finding, Message, ToolCall
-from control_layer.core.ports import DetectorDeps, ScanContext
-from control_layer.core.texts import iter_texts
-from control_layer.detectors import REGISTRY
+from egida.adapters.audit_jsonl import verify_file
+from egida.adapters.fake_model import FakeGuardModelClient, FakeModelClient
+from egida.app import Settings, create_app
+from egida.core.errors import PolicyError
+from egida.core.models import Category, Finding, Message, ToolCall
+from egida.core.ports import DetectorDeps, ScanContext
+from egida.core.texts import iter_texts
+from egida.detectors import REGISTRY
 
 DEMO_KEY = "sk-demo-agent"
 AUTH = {"Authorization": f"Bearer {DEMO_KEY}"}
@@ -95,11 +95,11 @@ def test_allowed_request_returns_completion_with_receipt(
 ) -> None:
     resp = _chat(client)
     assert resp.status_code == 200
-    assert resp.headers["X-Control-Decision"] == "allow"
+    assert resp.headers["X-Egida-Decision"] == "allow"
     body = resp.json()
     assert body["choices"][0]["message"]["content"] == "Zażółć gęślą jaźń"
     assert body["choices"][0]["finish_reason"] == "stop"
-    assert body["control_layer"]["decision"] == "allow"
+    assert body["egida"]["decision"] == "allow"
     assert body["usage"]["total_tokens"] == 15
     assert verify_file(paths.audit_path).ok
 
@@ -107,10 +107,10 @@ def test_allowed_request_returns_completion_with_receipt(
 def test_blocked_request_is_200_content_filter(client: TestClient, model: FakeModelClient) -> None:
     resp = _chat(client, model="gpt-4o")
     assert resp.status_code == 200
-    assert resp.headers["X-Control-Decision"] == "block"
+    assert resp.headers["X-Egida-Decision"] == "block"
     body = resp.json()
     assert body["choices"][0]["finish_reason"] == "content_filter"
-    assert body["control_layer"]["blocked_by"] == "access.model"
+    assert body["egida"]["blocked_by"] == "access.model"
     assert model.calls == 0
 
 
@@ -118,7 +118,7 @@ def test_stream_replays_checked_response_as_sse(client: TestClient) -> None:
     plain = _chat(client).json()["choices"][0]["message"]["content"]
     resp = _chat(client, stream=True)
     assert resp.headers["content-type"].startswith("text/event-stream")
-    assert resp.headers["X-Control-Decision"] == "allow"
+    assert resp.headers["X-Egida-Decision"] == "allow"
     events = [line[len("data: ") :] for line in resp.text.split("\n\n") if line]
     assert events[-1] == "[DONE]"
     chunks = [json.loads(e) for e in events[:-1]]
@@ -140,8 +140,8 @@ def test_alternative_message_shapes_are_scanned(
     client: TestClient, model: FakeModelClient, messages: list[dict[str, Any]]
 ) -> None:
     resp = _chat(client, messages=messages)
-    assert resp.headers["X-Control-Decision"] == "block"
-    assert resp.json()["control_layer"]["blocked_by"] == "keyword"
+    assert resp.headers["X-Egida-Decision"] == "block"
+    assert resp.json()["egida"]["blocked_by"] == "keyword"
     assert model.calls == 0
 
 
@@ -348,14 +348,14 @@ def test_policy_edits_apply_live(
     control = {"id": "keyword", "kind": "test_keyword", "sides": ["input"], "action": "allow"}
     write({**policy_dict, "controls": [control]})
     with TestClient(create_app(fast, model_client=FakeModelClient())) as c:
-        assert _chat(c, messages=attack).headers["X-Control-Decision"] == "allow"
+        assert _chat(c, messages=attack).headers["X-Egida-Decision"] == "allow"
 
         write({**policy_dict, "controls": [{**control, "action": "block"}]})
-        _wait_for(lambda: _chat(c, messages=attack).headers["X-Control-Decision"] == "block")
+        _wait_for(lambda: _chat(c, messages=attack).headers["X-Egida-Decision"] == "block")
 
         write("version: [broken")
         _wait_for(lambda: c.get("/api/policy").json()["last_error"])
-        assert _chat(c, messages=attack).headers["X-Control-Decision"] == "block"
+        assert _chat(c, messages=attack).headers["X-Egida-Decision"] == "block"
 
         no_agents = {**policy_dict, "agents": {}, "controls": [{**control, "action": "block"}]}
         write(no_agents)
@@ -394,8 +394,8 @@ def test_telemetry_and_metrics_report_stages_after_a_request(client: TestClient)
     resp = client.get("/metrics")
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith("text/plain; version=0.0.4")
-    assert 'control_layer_stage_latency_seconds{stage="total",quantile="0.95"}' in resp.text
-    assert 'control_layer_decisions_total{decision="allow"} 1' in resp.text
+    assert 'egida_stage_latency_seconds{stage="total",quantile="0.95"}' in resp.text
+    assert 'egida_decisions_total{decision="allow"} 1' in resp.text
 
 
 def test_audit_verify_endpoint_reports_tampering(client: TestClient, paths: Settings) -> None:
@@ -438,8 +438,8 @@ def test_detector_failing_at_startup_fails_closed(
     monkeypatch.setitem(REGISTRY, "test_keyword", missing)
     with TestClient(create_app(paths, model_client=FakeModelClient())) as c:
         resp = _chat(c)
-    assert resp.headers["X-Control-Decision"] == "block"
-    assert resp.json()["control_layer"]["blocked_by"] == "keyword"
+    assert resp.headers["X-Egida-Decision"] == "block"
+    assert resp.json()["egida"]["blocked_by"] == "keyword"
     errors = [
         json.loads(line)
         for line in paths.audit_path.read_text().splitlines()
@@ -465,7 +465,7 @@ def test_sample_policies_differ_in_strictness(
     settings = Settings(policy_path=Path(policy_file), audit_path=tmp_path / "audit.jsonl")
     with TestClient(create_app(settings, model_client=FakeModelClient())) as c:
         resp = _chat(c, messages=[{"role": "user", "content": text}])
-    assert resp.headers["X-Control-Decision"] == decision
+    assert resp.headers["X-Egida-Decision"] == decision
 
 
 def test_feed_edits_apply_live(tmp_path: Path) -> None:
@@ -494,14 +494,14 @@ def test_feed_edits_apply_live(tmp_path: Path) -> None:
     with_rule = seed.replace("feed_version: 1.0.0", "feed_version: 1.1.0").rstrip() + "\n" + snippet
     with TestClient(create_app(settings, model_client=FakeModelClient())) as c:
         before = _chat(c, messages=yaml_rce)
-        assert before.headers["X-Control-Decision"] == "allow"
+        assert before.headers["X-Egida-Decision"] == "allow"
         assert before.headers["X-Feed-Version"] == "1.0.0"
 
         write(with_rule)
-        _wait_for(lambda: _chat(c, messages=yaml_rce).headers["X-Control-Decision"] == "block")
+        _wait_for(lambda: _chat(c, messages=yaml_rce).headers["X-Egida-Decision"] == "block")
         after = _chat(c, messages=yaml_rce)
         assert after.headers["X-Feed-Version"] == "1.1.0"
-        receipt = after.json()["control_layer"]
+        receipt = after.json()["egida"]
         assert receipt["blocked_by"] == "signatures"
         assert receipt["feed_version"] == "1.1.0"
         assert "sig.SIG-0005" in receipt["controls"][0]["tags"]
@@ -511,7 +511,7 @@ def test_feed_edits_apply_live(tmp_path: Path) -> None:
         write(with_rule.replace("retries: !!int", "!!python/object:x"))  # benign test now matches
         _wait_for(lambda: c.get("/api/signatures").json()["last_error"])
         assert "own example" in c.get("/api/signatures").json()["last_error"]
-        assert _chat(c, messages=yaml_rce).headers["X-Control-Decision"] == "block"
+        assert _chat(c, messages=yaml_rce).headers["X-Egida-Decision"] == "block"
         assert c.get("/api/signatures/cases", params={"agent": "nobody"}).status_code == 404
 
     events = [json.loads(line) for line in settings.audit_path.read_text().splitlines()]
@@ -564,7 +564,7 @@ def test_tools_reach_the_model_with_canonical_parameters(
 ) -> None:
     model = FakeModelClient()
     with _tools_client(paths, policy_dict, model, ["*"]) as c:
-        assert _chat(c, tools=[SEARCH_TOOL]).headers["X-Control-Decision"] == "allow"
+        assert _chat(c, tools=[SEARCH_TOOL]).headers["X-Egida-Decision"] == "allow"
     assert model.last_interaction is not None
     (tool,) = model.last_interaction.tools
     assert tool.parameters_json == '{"properties":{"q":{"type":"string"}},"type":"object"}'
@@ -603,7 +603,7 @@ def test_disallowed_tool_is_a_receipt_not_an_error(
         resp = _chat(c, tools=[delete])
     assert resp.status_code == 200
     assert resp.json()["choices"][0]["finish_reason"] == "content_filter"
-    assert resp.json()["control_layer"]["blocked_by"] == "access.tool"
+    assert resp.json()["egida"]["blocked_by"] == "access.tool"
     assert "tool_calls" not in resp.json()["choices"][0]["message"]
 
 
@@ -655,7 +655,7 @@ def test_injection_in_a_tool_parameter_description_is_scanned(
     }
     with TestClient(create_app(paths, model_client=FakeModelClient())) as c:
         resp = _chat(c, tools=[poisoned])
-    assert resp.json()["control_layer"]["blocked_by"] == "keyword"
+    assert resp.json()["egida"]["blocked_by"] == "keyword"
 
 
 @pytest.mark.parametrize(

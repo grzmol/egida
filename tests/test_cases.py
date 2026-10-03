@@ -18,11 +18,11 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
-from control_layer.adapters.fake_model import FakeModelClient
-from control_layer.app import Settings, create_app
-from control_layer.core.models import Interaction, Message, Side, ToolCall
-from control_layer.core.texts import iter_texts
-from control_layer.detectors import REGISTRY
+from egida.adapters.fake_model import FakeModelClient
+from egida.app import Settings, create_app
+from egida.core.models import Interaction, Message, Side, ToolCall
+from egida.core.texts import iter_texts
+from egida.detectors import REGISTRY
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES_DIR = ROOT / "tests" / "cases"
@@ -31,7 +31,7 @@ REPORT_PATH = ROOT / "var" / "selftest.json"
 DEFAULT_MODEL = "llama3.2:3b"
 AGENT_KEYS: dict[str, str] = json.loads(
     os.environ.get(
-        "CONTROL_LAYER_TEST_KEYS",
+        "EGIDA_TEST_KEYS",
         '{"demo-agent": "sk-demo-agent", "ci-agent": "sk-ci-agent",'
         ' "selftest-agent": "sk-selftest-agent", "tools-agent": "sk-tools-agent",'
         ' "sig-probe-agent": "sk-sig-probe-agent"}',
@@ -39,8 +39,8 @@ AGENT_KEYS: dict[str, str] = json.loads(
 )
 
 # Live selftest runs as its own agent when the policy has one, so it never eats the demo
-# agent's budget: CONTROL_LAYER_SELFTEST_AGENT=selftest-agent make selftest
-SELFTEST_AGENT = os.environ.get("CONTROL_LAYER_SELFTEST_AGENT", "demo-agent")
+# agent's budget: EGIDA_SELFTEST_AGENT=selftest-agent make selftest
+SELFTEST_AGENT = os.environ.get("EGIDA_SELFTEST_AGENT", "demo-agent")
 
 Case = dict[str, Any]
 
@@ -120,9 +120,9 @@ def build_request(case: Case) -> dict[str, Any]:
 
 
 def parse_response(response: httpx.Response) -> tuple[str, dict[str, Any] | None, str | None]:
-    """(content, control_layer, finish_reason) for JSON or SSE chat completions."""
+    """(content, receipt, finish_reason) for JSON or SSE chat completions."""
     if response.headers.get("content-type", "").startswith("text/event-stream"):
-        content, control_layer, finish = "", None, None
+        content, receipt, finish = "", None, None
         for line in response.text.splitlines():
             if not line.startswith("data: ") or line == "data: [DONE]":
                 continue
@@ -130,34 +130,34 @@ def parse_response(response: httpx.Response) -> tuple[str, dict[str, Any] | None
             choice = chunk["choices"][0] if chunk.get("choices") else {}
             content += choice.get("delta", {}).get("content") or ""
             finish = choice.get("finish_reason") or finish
-            control_layer = chunk.get("control_layer", control_layer)
-        return content, control_layer, finish
+            receipt = chunk.get("egida", receipt)
+        return content, receipt, finish
     data = response.json()
     choice = data["choices"][0] if data.get("choices") else {}
     content = (choice.get("message") or {}).get("content") or ""
-    return content, data.get("control_layer"), choice.get("finish_reason")
+    return content, data.get("egida"), choice.get("finish_reason")
 
 
 def check(case: Case, response: httpx.Response, fake: FakeModelClient | None) -> None:
     expect = case["expect"]
     assert response.status_code == expect.get("http_status", 200), response.text[:300]
     if "absent_tag" in expect:  # benign feed example: the rule must not fire, decision is free
-        _, control_layer, _ = parse_response(response)
-        tags = {t for c in (control_layer or {}).get("controls", []) for t in c.get("tags", [])}
-        assert expect["absent_tag"] not in tags, control_layer
+        _, receipt, _ = parse_response(response)
+        tags = {t for c in (receipt or {}).get("controls", []) for t in c.get("tags", [])}
+        assert expect["absent_tag"] not in tags, receipt
     if "decision" not in expect:
         return
-    content, control_layer, finish = parse_response(response)
+    content, receipt, finish = parse_response(response)
     if expect["decision"] == "block":
         assert finish == "content_filter"
     if "control_id" in expect:
-        assert control_layer is not None, "response has no control_layer field"
-        ids = {c["id"] for c in control_layer.get("controls", [])}
-        assert expect["control_id"] in ids | {control_layer.get("blocked_by")}, control_layer
+        assert receipt is not None, "response has no egida field"
+        ids = {c["id"] for c in receipt.get("controls", [])}
+        assert expect["control_id"] in ids | {receipt.get("blocked_by")}, receipt
     if "tag" in expect:
-        assert control_layer is not None, "response has no control_layer field"
-        tags = {t for c in control_layer.get("controls", []) for t in c.get("tags", [])}
-        assert expect["tag"] in tags, control_layer
+        assert receipt is not None, "response has no egida field"
+        tags = {t for c in receipt.get("controls", []) for t in c.get("tags", [])}
+        assert expect["tag"] in tags, receipt
     for text in expect.get("response_not_contains", []):
         assert text not in content
     upstream_keys = {"upstream_not_contains", "upstream_max_tokens"} & set(expect)

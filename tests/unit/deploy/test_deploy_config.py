@@ -8,11 +8,11 @@ from typing import Any
 
 import yaml
 
-from control_layer.adapters.fake_model import FakeGuardModelClient
-from control_layer.app import _build_detectors
-from control_layer.core.policy import build_policy
-from control_layer.core.ports import DetectorDeps
-from control_layer.core.signatures import SIGNATURE_KIND, SignatureParams
+from egida.adapters.fake_model import FakeGuardModelClient
+from egida.app import _build_detectors
+from egida.core.policy import build_policy
+from egida.core.ports import DetectorDeps
+from egida.core.signatures import SIGNATURE_KIND, SignatureParams
 
 ROOT = Path(__file__).resolve().parents[3]
 NATIVE = ROOT / "config" / "policy.yaml"

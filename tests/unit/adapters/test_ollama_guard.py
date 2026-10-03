@@ -9,8 +9,8 @@ from typing import Any
 import httpx
 import pytest
 
-from control_layer.adapters.ollama_guard import OllamaGuardClient
-from control_layer.core.errors import UpstreamError
+from egida.adapters.ollama_guard import OllamaGuardClient
+from egida.core.errors import UpstreamError
 
 pytestmark = pytest.mark.anyio
 

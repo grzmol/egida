@@ -47,7 +47,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--target",
         action="store",
         default=None,
-        help="Base URL of a running control layer instance (live selftest), e.g. http://127.0.0.1:8080",
+        help="Base URL of a running Egida instance (live selftest), e.g. http://127.0.0.1:8080",
     )
 
 

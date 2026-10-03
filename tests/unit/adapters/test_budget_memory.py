@@ -7,10 +7,10 @@ from typing import Any
 
 import pytest
 
-from control_layer.adapters.budget_memory import InMemoryBudgetStore
-from control_layer.core.models import Usage
-from control_layer.core.policy import BudgetLimits
-from control_layer.core.ports import BudgetRequest
+from egida.adapters.budget_memory import InMemoryBudgetStore
+from egida.core.models import Usage
+from egida.core.policy import BudgetLimits
+from egida.core.ports import BudgetRequest
 
 pytestmark = pytest.mark.anyio
 

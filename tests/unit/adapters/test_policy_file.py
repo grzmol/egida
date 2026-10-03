@@ -10,10 +10,10 @@ import pytest
 import yaml
 from pydantic import BaseModel, ConfigDict
 
-from control_layer.adapters.policy_file import PolicyFile
-from control_layer.core.audit import AuditEvent
-from control_layer.core.errors import PolicyError
-from control_layer.core.models import Action
+from egida.adapters.policy_file import PolicyFile
+from egida.core.audit import AuditEvent
+from egida.core.errors import PolicyError
+from egida.core.models import Action
 
 pytestmark = pytest.mark.anyio
 

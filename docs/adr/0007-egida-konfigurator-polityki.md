@@ -1,6 +1,6 @@
 # ADR-0007: Egida: konfiguracja i uruchamianie AI Control Layer w terminalu
 
-**Status**: Accepted
+**Status**: Accepted. Nazwy pakietu i poleceń zmienia ADR-0008.
 **Data**: 2026-10-03
 **Decydują**: Grzegorz
 

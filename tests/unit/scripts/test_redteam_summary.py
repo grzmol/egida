@@ -32,7 +32,7 @@ def attempt(uuid: str, probe: str, outputs: list[str | None], scores: list[float
 
 
 def blocked(control: str, request_id: str) -> str:
-    return f"Request blocked by AI Control Layer (control: {control}, request: {request_id})."
+    return f"Request blocked by Egida (control: {control}, request: {request_id})."
 
 
 def write(path: Path, *lines: str) -> Path:

@@ -5,7 +5,7 @@ import unicodedata
 
 import pytest
 
-from control_layer.detectors.normalize import (
+from egida.detectors.normalize import (
     decoded_segments,
     mixed_script_words,
     normalize,

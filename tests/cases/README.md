@@ -23,8 +23,8 @@ Wtedy decyzję podejmują tylko kontrole wejścia. Kontrole wyjścia sprawdzają
 | `policy_patch` | zmiany scalane z polityką bazową; `controls` są zmieniane według id, `null` usuwa kontrolę |
 | `repeat` | wysyła żądanie N razy; `expect` dotyczy ostatniej odpowiedzi |
 | `expect.http_status` | status HTTP, domyślnie 200 |
-| `expect.decision` | `allow` / `redact` / `block` (z `control_layer.decision`) |
-| `expect.control_id` | musi być równe `control_layer.blocked_by` albo wystąpić w `control_layer.controls[].id` |
+| `expect.decision` | `allow` / `redact` / `block` (z `egida.decision`) |
+| `expect.control_id` | musi być równe `egida.blocked_by` albo wystąpić w `egida.controls[].id` |
 | `expect.response_not_contains` | teksty, których nie może być w treści odpowiedzi |
 | `expect.upstream_not_contains` | teksty, które nie mogą dotrzeć do modelu (tylko ASGI) |
 | `expect.upstream_max_tokens` | `max_tokens`, które dostał model (tylko ASGI) |

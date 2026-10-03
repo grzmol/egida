@@ -102,10 +102,10 @@ async def send(client: httpx.AsyncClient, args: argparse.Namespace, text: str) -
     ms = (time.perf_counter() - started) * 1000
     if response.status_code != 200:
         return {"error": f"http_{response.status_code}", "ms": ms}
-    receipt = response.json().get("control_layer", {})
+    receipt = response.json().get("egida", {})
     return {
-        "decision": response.headers.get("X-Control-Decision"),
-        "request_id": response.headers.get("X-Control-Request-Id"),
+        "decision": response.headers.get("X-Egida-Decision"),
+        "request_id": response.headers.get("X-Egida-Request-Id"),
         "blocked_by": receipt.get("blocked_by"),
         "controls": [c["id"] for c in receipt.get("controls", [])],
         "scores": {c["id"]: c["score"] for c in receipt.get("controls", [])},

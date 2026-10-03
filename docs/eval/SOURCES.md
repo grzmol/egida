@@ -1,6 +1,6 @@
 # Publiczne i własne zbiory ewaluacyjne (FP/FN)
 
-Ten dokument podaje źródła, licencje i atrybucje zbiorów. Zbiory mierzą odporność (False Negatives) i nadmierne blokowanie (False Positives) w AI Control Layer.
+Ten dokument podaje źródła, licencje i atrybucje zbiorów. Zbiory mierzą odporność (False Negatives) i nadmierne blokowanie (False Positives) w Egidzie.
 
 **Właściciel:** Kamil (Dev C), zadanie K2.  
 **Pliki wynikowe:** `var/eval/*.jsonl` (git ich nie śledzi).

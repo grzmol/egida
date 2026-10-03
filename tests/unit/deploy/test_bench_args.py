@@ -26,7 +26,7 @@ bench = _load_bench()
 
 
 def nearest_rank(values: Sequence[float], q: float) -> float | None:
-    """Stand-in for control_layer.adapters.telemetry.percentile (A6) with a known result."""
+    """Stand-in for egida.adapters.telemetry.percentile (A6) with a known result."""
     if not values:
         return None
     ordered = sorted(values)

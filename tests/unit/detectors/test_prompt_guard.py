@@ -4,9 +4,9 @@ from pathlib import Path
 import anyio
 import pytest
 
-from control_layer.core.models import Category, Interaction, Message, Side, ToolDef
-from control_layer.core.ports import ScanContext
-from control_layer.detectors.prompt_guard import (
+from egida.core.models import Category, Interaction, Message, Side, ToolDef
+from egida.core.ports import ScanContext
+from egida.detectors.prompt_guard import (
     MODEL_NAME,
     PromptGuardDetector,
     PromptGuardParams,
