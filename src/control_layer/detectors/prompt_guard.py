@@ -7,6 +7,7 @@ loads the model before any policy exists. Built with Llama (Llama 4 Community Li
 
 import os
 import re
+import threading
 from collections.abc import Sequence
 from functools import lru_cache
 from pathlib import Path
@@ -29,6 +30,7 @@ MALICIOUS = 1  # config.json id2label: {"0": "BENIGN", "1": "MALICIOUS"}
 LONG_WINDOW, LONG_STEP = 510, 446  # content tokens; [CLS] + 510 + [SEP] = 512 = model context
 SENTENCE_TOKENS, SENTENCE_MAX = 62, 256
 _SENTENCE_END = re.compile(r"(?<=[.!?;:])\s+|\n+")
+CONCURRENT_SCANS, SLOT_POLL_S = 2, 0.05
 TAGS = ("owasp.llm01-2025", "asi.asi01", "atlas.AML.T0051")
 _MESSAGE = re.compile(r"messages\[(\d+)\]\.content")
 _TOOL_DESCRIPTION = re.compile(r"tools\[\d+\]\.description")
@@ -75,7 +77,7 @@ def load_model(root: Path) -> tuple[ort.InferenceSession, Tokenizer]:
         if not path.is_file():
             raise FileNotFoundError(f"{path} missing; run `make models`")
     options = ort.SessionOptions()
-    options.intra_op_num_threads = 4  # x2 concurrent scans (limiter) = 8 cores
+    options.intra_op_num_threads = 4  # x2 concurrent scans (CONCURRENT_SCANS) = 8 cores
     session = ort.InferenceSession(str(model), options, providers=["CPUExecutionProvider"])
     tokenizer = Tokenizer.from_file(str(tokenizer_path))
     tokenizer.no_padding()  # windows are built by hand; the export pads every input to 512
@@ -95,7 +97,9 @@ class PromptGuardDetector:
             raise ValueError(f"{root}/tokenizer.json has no [CLS]/[SEP] tokens")
         self._cls: int = cls
         self._sep: int = sep
-        self._limiter: anyio.CapacityLimiter | None = None
+        # Inference slots are taken on the worker thread, so a scan abandoned by its timeout
+        # keeps its slot until the ONNX run really ends (anyio's limiter would free it at once).
+        self._slots = threading.BoundedSemaphore(CONCURRENT_SCANS)
         # History messages repeat on every agent turn: score each distinct text once.
         self._cached = lru_cache(maxsize=4096)(self._probability)
 
@@ -165,10 +169,25 @@ class PromptGuardDetector:
             )
         ]
 
+    def _scan_in_slot(
+        self, ctx: ScanContext, texts: list[tuple[str, str]], abandoned: threading.Event
+    ) -> list[Finding]:
+        """Waits for a free inference slot; gives up without running if the caller timed out."""
+        while not self._slots.acquire(timeout=SLOT_POLL_S):
+            if abandoned.is_set():
+                return []
+        try:
+            return [] if abandoned.is_set() else self._scan(ctx, texts)
+        finally:
+            self._slots.release()
+
     async def scan(self, ctx: ScanContext) -> list[Finding]:
-        if self._limiter is None:
-            self._limiter = anyio.CapacityLimiter(2)
         texts = list(iter_texts(ctx.interaction, ctx.side))
-        return await anyio.to_thread.run_sync(
-            self._scan, ctx, texts, limiter=self._limiter, abandon_on_cancel=True
-        )
+        abandoned = threading.Event()
+        try:
+            return await anyio.to_thread.run_sync(
+                self._scan_in_slot, ctx, texts, abandoned, abandon_on_cancel=True
+            )
+        except anyio.get_cancelled_exc_class():
+            abandoned.set()
+            raise
