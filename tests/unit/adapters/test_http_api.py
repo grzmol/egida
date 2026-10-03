@@ -182,8 +182,19 @@ def test_assistant_tool_call_with_null_content_is_accepted(client: TestClient) -
         {"messages": [{"role": "wizard", "content": "x"}]},
         {"messages": []},
         {"model": None},
+        {"max_tokens": -100000},
+        {"max_completion_tokens": 0},
     ],
-    ids=["image-part", "n=2", "null-user-content", "unknown-role", "no-messages", "no-model"],
+    ids=[
+        "image-part",
+        "n=2",
+        "null-user-content",
+        "unknown-role",
+        "no-messages",
+        "no-model",
+        "negative-max-tokens",  # would bypass the C17 clamp and reserve a negative budget
+        "zero-max-completion-tokens",
+    ],
 )
 def test_invalid_requests_get_400(client: TestClient, body: dict[str, Any]) -> None:
     resp = _chat(client, **body)

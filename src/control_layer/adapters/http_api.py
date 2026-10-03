@@ -26,7 +26,7 @@ from typing import Any, Literal
 import anyio
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from control_layer.adapters.audit_jsonl import verify_file
@@ -106,8 +106,8 @@ class _ToolIn(_In):
 class _ChatRequest(_In):
     model: str
     messages: list[_MessageIn]
-    max_tokens: int | None = None
-    max_completion_tokens: int | None = None
+    max_tokens: int | None = Field(default=None, ge=1)  # < 1 would dodge the C17 clamp and C15
+    max_completion_tokens: int | None = Field(default=None, ge=1)
     stream: bool = False
     n: int | None = None
     tools: list[_ToolIn] | None = None
