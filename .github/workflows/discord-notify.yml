@@ -1,8 +1,6 @@
 name: Discord notify
 
-on:
-  push:
-    branches: [main]
+on: push
 
 permissions: {}
 
