@@ -9,7 +9,7 @@ from typing import Any, ClassVar
 import pytest
 from pydantic import BaseModel, ConfigDict
 
-from control_layer.adapters.budget_passthrough import PassthroughBudgetStore
+from control_layer.adapters.budget_memory import InMemoryBudgetStore
 from control_layer.adapters.fake_model import FakeModelClient
 from control_layer.core.audit import AuditEvent
 from control_layer.core.errors import UpstreamError
@@ -130,6 +130,7 @@ def _pipeline(
     detectors: dict[str, Any],
     model: FakeModelClient | None = None,
     sink: MemorySink | None = None,
+    budgets: InMemoryBudgetStore | None = None,
 ) -> tuple[Pipeline, FakeModelClient, MemorySink]:
     model = model or FakeModelClient(reply="model says hi")
     sink = sink or MemorySink()
@@ -137,7 +138,7 @@ def _pipeline(
         policy=snapshot_source,
         detectors=detectors,
         model=model,
-        budgets=PassthroughBudgetStore(),
+        budgets=budgets or InMemoryBudgetStore(),
         audit=sink,
         clock=_TickClock(),
     )
@@ -245,6 +246,8 @@ async def test_control_errors_follow_on_error(
     assert len(errors) == 1
     assert errors[0].detail is not None
     assert "guard" in errors[0].detail
+    assert errors[0].control_id == "guard"
+    assert errors[0].blocked_by == ("guard" if on_error == "block" else None)
 
 
 async def test_finding_with_foreign_control_id_is_an_error(policy_dict: dict[str, Any]) -> None:
@@ -311,3 +314,40 @@ async def test_upstream_error_is_audited_and_raised(policy_dict: dict[str, Any])
     with pytest.raises(UpstreamError):
         await pipeline.run(_interaction())
     assert len(sink.of_type("upstream_error")) == 1
+
+
+async def test_budget_refusal_blocks_before_model(policy_dict: dict[str, Any]) -> None:
+    policy_dict["budgets"]["default"]["max_tokens"] = 10
+    pipeline, model, sink = _pipeline(SequencePolicySource(_snapshot(policy_dict, [])), {})
+    result = await pipeline.run(_interaction())
+    assert result.decision.blocked_by == "budget.tokens"
+    assert model.calls == 0
+    event = sink.of_type("decision")[0]
+    assert event.budget is not None
+    assert event.budget.max_tokens == 10
+
+
+async def test_upstream_failure_releases_reservation(policy_dict: dict[str, Any]) -> None:
+    budgets = InMemoryBudgetStore()
+    pipeline, _, _ = _pipeline(
+        SequencePolicySource(_snapshot(policy_dict, [])),
+        {},
+        model=FakeModelClient(raise_error=True),
+        budgets=budgets,
+    )
+    with pytest.raises(UpstreamError):
+        await pipeline.run(_interaction())
+    assert budgets.usage("demo-agent").requests == 0
+
+
+async def test_settled_usage_and_cost_are_audited(policy_dict: dict[str, Any]) -> None:
+    budgets = InMemoryBudgetStore()
+    pipeline, _, sink = _pipeline(
+        SequencePolicySource(_snapshot(policy_dict, [])), {}, budgets=budgets
+    )
+    await pipeline.run(_interaction())
+    event = sink.of_type("decision")[0]
+    assert event.usage is not None
+    assert (event.usage.prompt_tokens, event.usage.completion_tokens) == (10, 5)
+    assert event.cost == pytest.approx(10 / 1000 * 0.0002 + 5 / 1000 * 0.0006)
+    assert budgets.usage("demo-agent").tokens == 15

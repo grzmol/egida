@@ -294,6 +294,8 @@ class Pipeline:
                     model=interaction.model,
                     detail=f"{control.id} ({side.value}): {error.kind}: {error.message}; "
                     f"on_error={on_error}",
+                    control_id=control.id,
+                    blocked_by=control.id if on_error == "block" else None,
                 )
             )
             if on_error == "block":

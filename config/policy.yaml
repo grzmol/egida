@@ -28,6 +28,11 @@ agents:
     allowed_models: [llama3.2:3b]
     allowed_tools: []
     budget: default
+  ci-agent:                    # second agent: own key and a much smaller budget (limits per agent)
+    key_sha256: 327f34df0219d1f894d2b0ac3db43467a29fd76d4d65f6c499c32c8bce0b39d7   # sha256("sk-ci-agent")
+    allowed_models: [llama3.2:3b]
+    allowed_tools: []
+    budget: small
 
 budgets:
   default:
@@ -37,6 +42,35 @@ budgets:
     window_s: 3600
     max_identical: 5         # identical requests within identical_window_s = agent loop
     identical_window_s: 10
+  small:
+    max_tokens: 5000
+    max_cost: 0.05
+    max_requests: 30
+    window_s: 3600
+    max_identical: 3
+    identical_window_s: 10
 
 # Controls run in this order (cheap first). A control missing from this list is disabled.
-controls: []
+controls:
+  - id: pii                    # C04: e-mail, phone, PESEL, NIP, REGON, IBAN, card (checksums)
+    kind: pii
+    sides: [input, output]
+    action: redact
+    threshold: 0.5
+  - id: secrets                # C05: cloud/API keys, private keys, JWT, connection strings
+    kind: secrets
+    sides: [input, output]
+    action: block
+    threshold: 0.8
+  - id: injection_heuristics   # C06: EN/PL phrase rules after normalization (homoglyphs, base64)
+    kind: injection_heuristics
+    sides: [input]
+    action: block
+    threshold: 0.5
+  - id: prompt_guard           # C07: Llama Prompt Guard 2 86M (ONNX). Needs `make models`.
+    kind: prompt_guard
+    enabled: false             # decision at Sync 3 (18:00)
+    sides: [input]
+    action: block
+    threshold: 0.95
+    timeout_ms: 800
