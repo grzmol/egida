@@ -5,7 +5,7 @@ from __future__ import annotations
 import dataclasses
 
 from control_layer.core.budget import cost, estimate_tokens, fingerprint
-from control_layer.core.models import Interaction, Message
+from control_layer.core.models import Interaction, Message, ToolCall, ToolDef
 from control_layer.core.policy import ModelSpec
 
 
@@ -28,3 +28,22 @@ def test_fingerprint_identifies_identical_requests_only() -> None:
     a = _interaction("check inbox")
     assert fingerprint(a) == fingerprint(dataclasses.replace(a, request_id="other"))
     assert fingerprint(a) != fingerprint(_interaction("check inbox again"))
+
+
+def test_fingerprint_tells_apart_requests_differing_only_in_tool_calls_or_tools() -> None:
+    """An agent running different tool calls under the same chat text is not looping."""
+
+    def agent_turn(arguments: str, tools: tuple[ToolDef, ...] = ()) -> Interaction:
+        call = ToolCall("c1", "run", arguments)
+        messages = (
+            Message("user", "Use the tool."),
+            Message("assistant", "", tool_calls=(call,)),
+            Message("tool", "ok", tool_call_id="c1"),
+        )
+        return Interaction("r", "a", "m", messages, tools=tools)
+
+    first = agent_turn('{"cmd": "ls docs/"}')
+    assert fingerprint(first) == fingerprint(agent_turn('{"cmd": "ls docs/"}'))
+    assert fingerprint(first) != fingerprint(agent_turn('{"cmd": "cat README.md"}'))
+    other_tool = (ToolDef("run", "Runs a command.", "{}"),)
+    assert fingerprint(first) != fingerprint(agent_turn('{"cmd": "ls docs/"}', other_tool))

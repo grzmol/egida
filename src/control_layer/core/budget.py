@@ -34,11 +34,17 @@ def usage_cost(model: ModelSpec, usage: Usage) -> float:
 
 
 def fingerprint(interaction: Interaction) -> str:
-    """Request identity for loop detection: model + (role, content, tool_call_id) per message."""
+    """Request identity for loop detection: model, tool definitions and every message with its
+    tool calls. Tool calls count: the same chat text with different tool arguments is progress,
+    not a loop."""
     canonical = json.dumps(
         {
             "model": interaction.model,
-            "messages": [[m.role, m.content, m.tool_call_id] for m in interaction.messages],
+            "messages": [
+                [m.role, m.content, m.tool_call_id, [[c.name, c.arguments] for c in m.tool_calls]]
+                for m in interaction.messages
+            ],
+            "tools": [[t.name, t.description, t.parameters_json] for t in interaction.tools],
         },
         sort_keys=True,
         separators=(",", ":"),
