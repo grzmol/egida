@@ -1,6 +1,6 @@
 # Eksploracja i brainstorming — synteza
 
-Stan: 2026-10-03, ok. 12:30. Siedmiu agentów w dwóch falach: najpierw przegląd istniejących narzędzi i zagrożeń, potem brainstorming z trzech perspektyw. Ten plik zbiera wnioski i rozbieżności z [PLAN](../PLAN.md) i [ADR](../adr/README.md). Szczegóły i źródła (URL-e, licencje) są w plikach poniżej.
+Stan: 2026-10-03, ok. 12:10. Siedmiu agentów w dwóch falach: najpierw przegląd istniejących narzędzi i zagrożeń, potem brainstorming z trzech perspektyw. Ten plik zbiera wnioski i rozbieżności z [PLAN](../PLAN.md) i [ADR](../adr/README.md). Szczegóły i źródła (URL-e, licencje) są w plikach poniżej.
 
 | Plik | Fala | Perspektywa / skill |
 |---|---|---|
@@ -70,7 +70,7 @@ Stan: 2026-10-03, ok. 12:30. Siedmiu agentów w dwóch falach: najpierw przeglą
 - C15–C17: budżety tokenów i kosztu, wykrywanie pętli, limity rozmiaru i `max_tokens`; C21 fail-closed.
 - Audyt JSONL (zredagowany, z łańcuchem hashy), minimalny dashboard, eksport CSV.
 - ~30 przypadków w `tests/cases/*.yaml` (negatywy i pozytywy), `make selftest` na żywej instancji.
-- README z positioning statement i instrukcją podpięcia agenta (zmiana `base_url`), diagram architektury, `docs/AI_USAGE.md`.
+- README z positioning statement i instrukcją podpięcia agenta (zmiana `base_url`), diagram architektury, `docs/ai-usage/`.
 - Opcjonalnie: PG2-86M, jeśli tor E jest zielony do 18:00. Freeze 19:00, zgłoszenie 19:45.
 
 **Po drafcie do 4.10 11:00:** feed sygnatur z przeładowaniem bez restartu i testami w regułach (C10, C11, C18), kontrole narzędzi (C03, C09), guard LLM, C14 i C22, p50/p95 i `/metrics`, demo agent z narzędziami, garak przed/po proxy, Compose na czystej maszynie, audyt długu, slajdy (12 §3).

@@ -21,6 +21,8 @@ Team repository for the HackYeah 2026 hackathon (Kraków, Oct 3–4, 2026). Read
 | `docs/adr/` | Architecture Decision Records + index |
 | `Dockerfile`, `compose.yaml` | Container scaffold (placeholder) |
 | `docs/research/` | Landscape of existing tools, threat catalog, test design, persona brainstorms; synthesis + proposed plan changes in `docs/research/README.md` |
+| `docs/WORKPLAN.md` | Two-developer parallel work plan: file ownership, timeline, sync points, git and Claude Code workflow |
+| `CLAUDE.md` | Imports `AGENTS.md` and `docs/WORKPLAN.md` for Claude Code sessions |
 
 ## Answering Questions About the Hackathon
 
@@ -66,7 +68,11 @@ Source: `docs/PLAN.md` §2–§4 and ADR-0001…0004. Summary for agents:
 
 ## Definition of Done
 
-Every increment must pass `docs/PLAN.md` §8 (based on `skill://ai-debt-detector`): green `make check`, positive and negative cases, failure modes handled with specific exceptions, no orphaned resources, no unverified imports, no architecture drift, no TODOs, `docs/AI_USAGE.md` updated, plan status updated.
+Every increment must pass `docs/PLAN.md` §8 (based on `skill://ai-debt-detector`): green `make check`, positive and negative cases, failure modes handled with specific exceptions, no orphaned resources, no unverified imports, no architecture drift, no TODOs, `docs/ai-usage/<dev>.md` updated, plan status updated.
+
+## Parallel Work (two developers)
+
+`docs/WORKPLAN.md` is binding: Dev A owns platform files (`core/`, `app.py`, `pyproject.toml`, `Makefile`, proxy/policy/budget/audit adapters, `config/`), Dev B owns `detectors/`, `metrics_memory.py`, `dashboard/`, `tests/cases/`, `tests/test_cases.py`. Before editing, confirm which developer you are working for and touch only their files; request changes to the other's files instead of editing them. Workflow per push: `git pull --rebase origin main && make check && git push`.
 
 ## Docker
 
