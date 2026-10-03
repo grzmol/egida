@@ -28,12 +28,31 @@ RULES: tuple[tuple[str, float, re.Pattern[str]], ...] = tuple(
             r"-----BEGIN[ A-Z0-9_-]{0,100}PRIVATE KEY(?: BLOCK)?-----[\s\S]*?"
             r"(?:-----END[ A-Z0-9_-]{0,100}PRIVATE KEY(?: BLOCK)?-----|\Z)",
         ),
-        ("jwt", 0.9, r"\bey[A-Za-z0-9_-]{10,}\.ey[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),
+        (
+            "jwt",
+            0.9,
+            r"(?<![A-Za-z0-9_-])ey[A-Za-z0-9_-]{10,}\.ey[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}",
+        ),
         ("slack_token", 1.0, r"\bxox[abposr]-[A-Za-z0-9-]{10,}"),
         ("conn_string", 0.9, r"\b[a-z][a-z0-9+.-]{1,20}://[^\s:/@]+:[^\s/@]+@\S+"),
         ("openai_key", 1.0, r"\bsk-(?:proj-|ant-)?[A-Za-z0-9_-]{20,}"),
         ("stripe_key", 1.0, r"\b[rs]k_live_[A-Za-z0-9]{20,}"),
         ("google_api_key", 1.0, r"\bAIza[0-9A-Za-z_-]{35}\b"),
+        ("gitlab_token", 1.0, r"\bglpat-[A-Za-z0-9_-]{20}\b"),
+        ("npm_token", 1.0, r"\bnpm_[A-Za-z0-9]{36}\b"),
+        ("sendgrid_key", 1.0, r"\bSG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}\b"),
+        (
+            "aws_secret_key",
+            1.0,
+            r"(?i)(?<![a-z0-9])aws_?secret(_access)?_?key\b\s*[:=]\s*['\"]?[A-Za-z0-9/+=]{40}",
+        ),
+        ("bearer_token", 0.9, r"(?i)\bauthorization:\s*bearer\s+[A-Za-z0-9._~+/=-]{16,}"),
+        (
+            "keyed_secret",
+            0.8,
+            r"(?i)(?<![a-z0-9])(password|passwd|pwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token)"
+            r"\b\s*[:=]\s*['\"]?[^\s'\"]{8,}",
+        ),
     )
 )
 ENTROPY_SCORE = 0.6
@@ -61,15 +80,17 @@ def find_secrets(
         for m in pattern.finditer(text)
     ]
     if "high_entropy" in rules:
+        taken = bytearray(len(text))
+        for _, _, start, end in hits:
+            taken[start:end] = b"\x01" * (end - start)
         for m in _TOKEN.finditer(text):
-            token = m.group()
-            covered = any(m.start() < end and start < m.end() for _, _, start, end in hits)
+            start, end = m.span()
             if (
-                len(token) >= entropy_min_len
-                and not covered
-                and shannon_entropy(token) > entropy_threshold
+                end - start >= entropy_min_len
+                and not any(taken[start:end])
+                and shannon_entropy(m.group()) > entropy_threshold
             ):
-                hits.append(("high_entropy", ENTROPY_SCORE, m.start(), m.end()))
+                hits.append(("high_entropy", ENTROPY_SCORE, start, end))
     return sorted(hits, key=lambda h: h[2])
 
 
@@ -94,8 +115,16 @@ def _scan(control_id: str, texts: list[tuple[str, str]], params: SecretsParams) 
     for target, text in texts:
         found = find_secrets(text, params.rules, params.entropy_threshold, params.entropy_min_len)
         hits += [(target, label, score, start, end) for label, score, start, end in found]
-    evidence = [f"{label}@{target}" for target, label, *_ in hits]
-    return span_finding(control_id, Category.SECRET, hits, TAGS, evidence)
+    # Entropy-only hits are a separate, weaker finding: the policy threshold decides them on
+    # their own, so a real key in the same message does not drag them into redaction.
+    findings: list[Finding] = []
+    for group in (
+        [h for h in hits if h[1] != "high_entropy"],
+        [h for h in hits if h[1] == "high_entropy"],
+    ):
+        evidence = [f"{label}@{target}" for target, label, *_ in group]
+        findings += span_finding(control_id, Category.SECRET, group, TAGS, evidence)
+    return findings
 
 
 class SecretsDetector:
@@ -106,4 +135,6 @@ class SecretsDetector:
         if not isinstance(ctx.params, SecretsParams):
             raise TypeError(f"expected SecretsParams, got {type(ctx.params).__name__}")
         texts = list(iter_texts(ctx.interaction, ctx.side))
-        return await anyio.to_thread.run_sync(_scan, ctx.control_id, texts, ctx.params)
+        return await anyio.to_thread.run_sync(
+            _scan, ctx.control_id, texts, ctx.params, abandon_on_cancel=True
+        )

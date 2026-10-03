@@ -50,13 +50,17 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def download(client: httpx.Client, url: str, path: Path) -> None:
+def download(client: httpx.Client, url: str, path: Path, expected: str) -> None:
+    """Download to .part, verify sha256, only then move into place."""
     part = path.with_name(path.name + ".part")
     with client.stream("GET", url) as response:
         response.raise_for_status()
         with part.open("wb") as f:
             for chunk in response.iter_bytes(1 << 20):
                 f.write(chunk)
+    if sha256(part) != expected:
+        part.unlink()
+        return
     part.replace(path)
 
 
@@ -70,10 +74,9 @@ def fetch(name: str) -> bool:
             path = target / filename
             if not path.exists():
                 print(f"downloading {repo}@{revision[:8]}/{filename}")
-                download(
-                    client, f"https://huggingface.co/{repo}/resolve/{revision}/{filename}", path
-                )
-            actual = sha256(path)
+                url = f"https://huggingface.co/{repo}/resolve/{revision}/{filename}"
+                download(client, url, path, expected)
+            actual = sha256(path) if path.exists() else "missing (download failed checksum)"
             if actual != expected:
                 print(f"SHA256 MISMATCH {path}\n  expected {expected}\n  actual   {actual}")
                 ok = False

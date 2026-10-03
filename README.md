@@ -73,6 +73,27 @@ Do tego: diagram architektury, przykładowa konfiguracja z różnymi poziomami r
 
 Jury bez przygotowania: uruchamia nasz zestaw testów, wpisuje własne prompty do działającej warstwy, zmienia konfigurację na żywo (usuwa kontrole, zmienia progi) i patrzy, czy zmiany działają.
 
+## Dlaczego my
+
+> Dla zespołów platformowych, które wpuszczają agentów AI do wrażliwych systemów, AI Control Layer to proxy działające w pełni lokalnie. Jeden walidowany plik polityki steruje decyzją ALLOW / REDACT / BLOCK i budżetami. W odróżnieniu od LiteLLM czy agentgateway warstwa semantyczna działa lokalnie, a bezpieczeństwo nie zależy od płatnej licencji ani chmury ([research 01 §4](docs/research/01-gatewaye-i-proxy.md)).
+
+- **Lokalnie i open source.** Proxy, detektory i klasyfikator injection (Llama Prompt Guard 2 w ONNX) działają na laptopie, bez wywołań do chmury. Agent podłącza się przez zmianę `base_url` w kliencie OpenAI.
+- **Jedna polityka, zmiana na żywo.** `config/policy.yaml` jest walidowany przy każdej zmianie. Błędna wersja jest odrzucana z podanym powodem, a ruch chroni ostatnia poprawna. Wyłączenie kontroli dashboard oznacza jako „posture weakened”.
+- **Każda decyzja ma paragon.** Odpowiedź i wpis audytu niosą id kontroli, wynik, hash polityki, tagi OWASP/ATLAS i czasy etapów. Audyt jest łańcuchem hashy i nie zawiera treści promptów.
+- **Polski na równi z angielskim.** PESEL, NIP i IBAN z sumami kontrolnymi; heurystyki injection po normalizacji (homoglify, zero-width, base64, ROT13) w obu językach; numery wyglądające jak PESEL lub karta, ale bez poprawnej sumy, przechodzą.
+- **Testy, które może uruchomić jury.** Te same przypadki w `tests/cases/*.yaml` (ataki i pułapki fałszywych alarmów) działają offline w CI i przeciw działającej instancji: `make selftest`.
+
+| Kontrola | Co blokuje | Zagrożenie |
+|---|---|---|
+| `pii` (C04) | PESEL, NIP, IBAN, karta (Luhn), e-mail, telefon na wejściu i wyjściu | OWASP LLM02 |
+| `secrets` (C05) | klucze AWS/GitHub/Slack/OpenAI, klucze prywatne PEM, JWT, connection stringi | OWASP LLM02, ASI03 |
+| `injection_heuristics` (C06) | frazy injection i jailbreak EN/PL po normalizacji, także w wynikach narzędzi i opisach narzędzi | OWASP LLM01, ASI01 |
+| `prompt_guard` (C07) | parafrazy injection (klasyfikator Prompt Guard 2 86M, lokalnie) | OWASP LLM01, ASI01 |
+
+W toku (do 4.10): feed sygnatur znanych ataków, kontrole narzędzi, guard LLM dla treści szkodliwych.
+
+Built with Llama: Llama Prompt Guard 2 jest udostępniany na licencji Llama 4 Community License.
+
 ## Dlaczego to zadanie
 
 Przeanalizowaliśmy wszystkie 10 zadań pod kątem pisania projektu z pomocą AI. Kwoty, wagi i wymagania pochodzą z [bazy wiedzy](knowledge-base/README.md); oceny „+/−” to nasza ocena.

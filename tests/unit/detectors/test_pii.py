@@ -1,3 +1,5 @@
+import time
+
 import pytest
 from pydantic import ValidationError
 
@@ -18,6 +20,12 @@ from control_layer.detectors.pii import PiiDetector, PiiParams, find_pii
         ("Zadzwoń: +48 601 234 567", "phone", "+48 601 234 567"),
         ("Tel. 601-234-567", "phone", "601-234-567"),
         ("NIP 123-456-32-18", "nip", "123-456-32-18"),
+        ("PESEL-44051401359", "pesel", "44051401359"),
+        ("id 44051401359-", "pesel", "44051401359"),
+        ("qty 2 4111111111111111", "card", "4111111111111111"),
+        ("Total 100 4111 1111 1111 1111", "card", "4111 1111 1111 1111"),
+        ("mój telefon: 600700800", "phone", "600700800"),
+        ("call me at +48600700800", "phone", "+48600700800"),
     ],
 )
 def test_pii_found_with_span_on_original_text(text: str, label: str, value: str) -> None:
@@ -34,6 +42,8 @@ def test_pii_found_with_span_on_original_text(text: str, label: str, value: str)
         "Spotkanie 2026-10-03 o 12:30, sala 101",
         "Konto PL61 1090 1014 0000 0712 1981 2875",  # bad mod 97
         "NIP 123-456-32-19",  # bad NIP checksum
+        "Zamówienie 600700800 wysłane.",  # 9 digits without a phone keyword
+        "Card 4111-1111-1111-1111-2",  # slice of a longer number
     ],
 )
 def test_pii_look_alikes_pass(text: str) -> None:
@@ -93,3 +103,20 @@ async def test_detector_finds_nothing_in_clean_output() -> None:
     )
     ctx = ScanContext(interaction, Side.OUTPUT, "pii", PiiParams())
     assert await PiiDetector().scan(ctx) == []
+
+
+@pytest.mark.parametrize(
+    "unit", ["a.", "a-", "a+", "a@b.co ", "601 234 567 ", "1 ", "4111 ", "tel 600700800 "]
+)
+def test_adversarial_input_scans_in_linear_time(unit: str) -> None:
+    text = unit * (100_000 // len(unit))
+    started = time.perf_counter()
+    find_pii(text)
+    assert time.perf_counter() - started < 0.5
+
+
+def test_params_reject_empty_match_and_entity_clash() -> None:
+    with pytest.raises(ValidationError):
+        PiiParams(extra_patterns={"badge": r"\d*"})
+    with pytest.raises(ValidationError):
+        PiiParams(extra_patterns={"email": r"x@y"})

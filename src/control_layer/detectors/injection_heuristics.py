@@ -18,36 +18,48 @@ from control_layer.detectors.common import EVIDENCE_MAX
 from control_layer.detectors.normalize import mixed_script_words, views
 
 _EN_ADJ = r"(previous|prior|above|earlier|preceding|system|initial|original|your|all)"
-_EN_NOUN = r"(instructions?|prompts?|rules|directives|guidelines|guardrails)"
+_EN_NOUN = r"(instructions?|prompts?|rules|directives|directions|guidelines|guardrails)"
+# Polish: stems cover every case ending ("poprzednich instrukcjach", "wytycznych").
 _PL_ADJ = (
-    r"(poprzednie|wczesniejsze|powyzsze|wszystkie|dotychczasowe|systemowe|"
-    r"twoje|swoje|swoich|twoich)"
+    r"(poprzedni\w*|wczesniejsz\w*|powyzsz\w*|wszystki\w*|dotychczasow\w*|systemow\w*|"
+    r"twoj\w*|twoi\w*|swoj\w*|swoi\w*)"
 )
-_PL_NOUN = (
-    r"(instrukcje|instrukcji|polecenia|polecen|zasady|zasad|reguly|regul|"
-    r"wytyczne|wytycznych|prompty?)"
-)
+_PL_NOUN = r"(instrukcj\w*|polecen\w*|zasad\w*|regul\w*|wytyczn\w*|prompt\w*)"
+_PL_IGNORE = r"(zignoruj|ignoruj|pomin|zapomnij( o)?|olej|nie zwazaj na|nie zwracaj uwagi na)"
+_BENIGN_OBJECT = r"(message|messages|typos?|email|e-mail|question|answer|reply|post|comment)"
 
 PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
     (name, re.compile(rx))
     for name, rx in (
         (
             "ignore_instructions",
-            rf"\b(ignore|disregard|forget|override|bypass)\s+((all|any|the|of|my|these)\s+)*"
+            rf"\b(ignore|disregard|forget|bypass)\s+((all|any|the|of|my|these)\s+)*"
             rf"{_EN_ADJ}\s+(\w+\s+)?{_EN_NOUN}\b",
+        ),
+        (
+            "ignore_everything_before",
+            rf"\b(ignore|disregard|forget)\s+(all\s+|everything\s+|anything\s+)?"
+            rf"(previous|prior|above|earlier|preceding)\b(?!\s+(\w+\s+)?{_BENIGN_OBJECT})",
         ),
         (
             "reveal_system_prompt",
             r"\b(print|reveal|show|repeat|output|display|leak|dump|give|tell)\s+(me\s+|us\s+)?"
-            r"(your|the)\s+(\w+\s+)?(system\s+prompt|(initial|hidden|original|secret)\s+"
-            r"(instructions|prompt))\b",
+            r"((your|the)\s+(\w+\s+)?system\s+prompt|your\s+(\w+\s+)?"
+            r"(initial|hidden|original|secret|system)\s+(instructions|prompt))\b",
         ),
+        (
+            "ask_system_prompt",
+            r"\bwhat (is|are|were) your (\w+\s+)?(system prompt|(initial|original|hidden|secret|"
+            r"system) instructions)\b",
+        ),
+        ("repeat_above", r"\brepeat (the |all )?(words|text|everything|lines) above\b"),
         (
             "persona_override",
             r"\b(you are now|from now on you are|pretend (to be|you are)|act as)\b.{0,40}"
-            r"\b(dan|jailbroken|unrestricted|unfiltered|uncensored|without (any )?"
+            r"\b(jailbroken|unrestricted|unfiltered|uncensored|without (any )?"
             r"(restrictions|filters|rules|limits))\b",
         ),
+        ("you_are_dan", r"\byou are (now )?dan\b"),
         (
             "no_restrictions",
             r"\b(pretend|imagine|act as if|assume)\b.{0,30}\b(you have|there are) no "
@@ -73,16 +85,23 @@ PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
             r"(is|are|has been|have been) (revoked|disabled|lifted|removed))\b",
         ),
         ("do_anything_now", r"\bdo anything now\b"),
-        ("mode_switch", r"\b(enable|activate|enter)\w*\s+(developer|dan|god|jailbreak)\s+mode\b"),
+        (
+            "mode_switch",
+            r"\b((you are|you're) (now )?in|switch (yourself )?(in)?to|enable your)\s+"
+            r"(developer|dan|god|jailbreak|unrestricted)\s+mode\b|\b(dan|jailbreak) mode\b",
+        ),
         (
             "fake_role_header",
-            r"(^|[\n\[(])\s*(system|admin|developer)\s*(message|override|note)?\s*[\]:)]\s*"
-            r"(ignore|disregard|send|forward|email|exfiltrate|reveal|upload)\b",
+            r"(^|[\n\[(])\s*system\s*(message|override|note)?\s*[\]:)]\s*"
+            r"(ignore|disregard|send|forward|exfiltrate|reveal)\b",
         ),
         (
             "pl_ignore_instructions",
-            rf"\b(zignoruj|ignoruj|pomin|zapomnij|olej|nie zwazaj na)\s+(\w+\s+){{0,2}}"
-            rf"{_PL_ADJ}\s+(\w+\s+)?{_PL_NOUN}\b",
+            rf"\b{_PL_IGNORE}\s+(\w+\s+){{0,2}}{_PL_ADJ}\s+(\w+\s+)?{_PL_NOUN}",
+        ),
+        (
+            "pl_ignore_instructions_after",
+            rf"\b{_PL_IGNORE}\s+(wszystki\w*\s+)?{_PL_NOUN}\s+(powyzej|wyzej|wczesniej|systemow\w*)",
         ),
         (
             "pl_reveal_system_prompt",
@@ -91,9 +110,14 @@ PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
             r"systemow\w*\s+instrukcj\w*)",
         ),
         (
+            "pl_reveal_own_instructions",
+            r"\b(podaj|pokaz|wypisz|powtorz|ujawnij|wyswietl|zdradz)\s+(mi\s+)?(swoj\w*|twoj\w*)\s+"
+            r"(instrukcj\w*|polecen\w*|wytyczn\w*|prompt\w*)",
+        ),
+        (
             "pl_persona_override",
             r"\b(jestes teraz|od teraz jestes|udawaj, ze jestes|udawaj ze jestes)\b.{0,40}"
-            r"\b(dan|bez ograniczen|bez cenzury|bez filtrow|nieograniczon\w*)",
+            r"\b(bez ograniczen|bez cenzury|bez filtrow|nieograniczon\w*)",
         ),
         (
             "pl_no_restrictions",
@@ -102,7 +126,7 @@ PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         ),
         (
             "pl_disobey",
-            rf"\bnie (stosuj sie do|sluchaj|przestrzegaj)\s+(\w+\s+)?{_PL_NOUN}\b",
+            rf"\bnie (stosuj sie do|sluchaj|przestrzegaj)\s+(\w+\s+)?{_PL_NOUN}",
         ),
     )
 )
@@ -187,4 +211,6 @@ class InjectionHeuristics:
         if not isinstance(ctx.params, InjectionParams):
             raise TypeError(f"expected InjectionParams, got {type(ctx.params).__name__}")
         texts = list(iter_texts(ctx.interaction, ctx.side))
-        return await anyio.to_thread.run_sync(_scan, ctx.control_id, texts, ctx.params)
+        return await anyio.to_thread.run_sync(
+            _scan, ctx.control_id, texts, ctx.params, abandon_on_cancel=True
+        )

@@ -1,3 +1,5 @@
+import time
+
 import pytest
 from pydantic import ValidationError
 
@@ -25,7 +27,24 @@ RANDOM_B64 = "q8Zt3VwXy7LmN2pRk9sJ4hGf6dCbA1eQ"  # 32 distinct characters
         (f"key:\n{PEM}\nthanks", "private_key", PEM),
         (f"Bearer {JWT}", "jwt", JWT),
         ("DSN postgres://u:p@h/db", "conn_string", "postgres://u:p@h/db"),
-        (f"secret {RANDOM_B64}", "high_entropy", RANDOM_B64),
+        (f"cache {RANDOM_B64}", "high_entropy", RANDOM_B64),
+        ("DB_PASSWORD=s3cr3tPassw0rd!", "keyed_secret", "PASSWORD=s3cr3tPassw0rd!"),
+        ("api_key: 'abcdef0123456789abcdef'", "keyed_secret", "api_key: 'abcdef0123456789abcdef"),
+        (
+            "Authorization: Bearer abcdefghijklmnop1234",
+            "bearer_token",
+            "Authorization: Bearer abcdefghijklmnop1234",
+        ),
+        (
+            "token glpat-" + "a1b2c3d4e5f6g7h8i9j0",
+            "gitlab_token",
+            "glpat-" + "a1b2c3d4e5f6g7h8i9j0",
+        ),
+        (
+            "aws_secret_access_key = " + "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+            "aws_secret_key",
+            "aws_secret_access_key = " + "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+        ),
     ],
 )
 def test_secrets_found_with_span_on_original_text(text: str, label: str, value: str) -> None:
@@ -41,6 +60,9 @@ def test_secrets_found_with_span_on_original_text(text: str, label: str, value: 
         "id 550e8400-e29b-41d4-a716-446655440000",
         "See https://example.com/docs?page=2",
         "-----BEGIN PUBLIC KEY-----",
+        "Set a password: at least 12 characters.",
+        "The API key: see docs/setup.md",
+        "password: hunter2",
     ],
 )
 def test_secret_look_alikes_pass(text: str) -> None:
@@ -68,14 +90,12 @@ async def test_detector_scans_output_side_without_leaking_value() -> None:
         output=Message(role="assistant", content=f"Here: AKIAIOSFODNN7EXAMPLE and {RANDOM_B64}"),
     )
     ctx = ScanContext(interaction, Side.OUTPUT, "secrets", SecretsParams())
-    [finding] = await SecretsDetector().scan(ctx)
-    assert finding.category == Category.SECRET
-    assert finding.score == 1.0
-    assert [(s.target, s.label) for s in finding.spans] == [
-        ("output.content", "aws_access_key"),
-        ("output.content", "high_entropy"),
-    ]
-    assert "AKIAIOSFODNN7EXAMPLE" not in finding.evidence
+    key, entropy = await SecretsDetector().scan(ctx)
+    assert key.category == entropy.category == Category.SECRET
+    assert (key.score, entropy.score) == (1.0, 0.6)
+    assert [(s.target, s.label) for s in key.spans] == [("output.content", "aws_access_key")]
+    assert [s.label for s in entropy.spans] == ["high_entropy"]
+    assert "AKIAIOSFODNN7EXAMPLE" not in key.evidence
 
 
 @pytest.mark.anyio
@@ -89,3 +109,11 @@ async def test_entropy_only_scores_below_block_threshold() -> None:
     ctx = ScanContext(interaction, Side.INPUT, "secrets", SecretsParams())
     [finding] = await SecretsDetector().scan(ctx)
     assert finding.score == 0.6
+
+
+@pytest.mark.parametrize("unit", ["ey-", "sk-", "AKIAIOSFODNN7EXAMPLE x "])
+def test_adversarial_input_scans_in_linear_time(unit: str) -> None:
+    text = unit * (100_000 // len(unit))
+    started = time.perf_counter()
+    find_secrets(text)
+    assert time.perf_counter() - started < 0.5

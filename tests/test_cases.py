@@ -17,6 +17,8 @@ from fastapi.testclient import TestClient
 
 from control_layer.adapters.fake_model import FakeModelClient
 from control_layer.app import Settings, create_app
+from control_layer.core.models import Side
+from control_layer.core.texts import iter_texts
 from control_layer.detectors import REGISTRY
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -128,18 +130,22 @@ def check(case: Case, response: httpx.Response, fake: FakeModelClient | None) ->
         assert expect["control_id"] in ids | {control_layer.get("blocked_by")}, control_layer
     for text in expect.get("response_not_contains", []):
         assert text not in content
-    if fake is not None and fake.last_interaction is not None:
-        sent = json.dumps([m.content for m in fake.last_interaction.messages], ensure_ascii=False)
-        for text in expect.get("upstream_not_contains", []):
-            assert text not in sent
+    upstream_keys = {"upstream_not_contains", "upstream_max_tokens"} & set(expect)
+    sent = fake.last_interaction if fake is not None else None
+    if fake is not None and upstream_keys and expect["decision"] != "block":
+        assert sent is not None, "model was never called"
+    if sent is not None and upstream_keys:  # a block before the model leaves nothing to check
+        texts = [text for _, text in iter_texts(sent, Side.INPUT)]
+        for value in expect.get("upstream_not_contains", []):
+            assert not any(value in text for text in texts), f"{value!r} reached the model"
         if "upstream_max_tokens" in expect:
-            assert fake.last_interaction.max_tokens == expect["upstream_max_tokens"]
+            assert sent.max_tokens == expect["upstream_max_tokens"]
 
 
 def run_offline(case: Case, tmp_path: Path) -> None:
     policy = yaml.safe_load(POLICY_PATH.read_text(encoding="utf-8"))
     policy_path = tmp_path / "policy.yaml"
-    policy_path.write_text(yaml.safe_dump(merge(policy, case.get("policy_patch", {}))))
+    policy_path.write_text(yaml.safe_dump(merge(policy, case.get("policy_patch") or {})))
     fake = FakeModelClient(reply=case.get("model_reply") or "OK")
     settings = Settings(policy_path=policy_path, audit_path=tmp_path / "audit.jsonl")
     with TestClient(create_app(settings, model_client=fake)) as client:
