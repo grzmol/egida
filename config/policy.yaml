@@ -43,6 +43,16 @@ agents:
     allowed_models: [llama3.2:3b]
     allowed_tools: [search_docs, read_file, http_get]   # delete_file deliberately missing (ACL scene)
     budget: default
+  sig-probe-agent:             # selftest probes: feed rule cases and cases with arbitrary tool names
+    key_sha256: f9cf298d42631a639f1819067a9b4551aa5f27b819cc41cd7de1b453626cd90c   # sha256("sk-sig-probe-agent")
+    allowed_models: [llama3.2:3b]
+    allowed_tools: ["*"]       # probes use unique tool names (sig_probe_*)
+    budget: default
+  bench-agent:                 # make bench only: its own budget so a load run never touches the demo
+    key_sha256: 964111b82a664af4af4767424f6b93858838c047c85dabee1263ed07a5d304f8   # sha256("sk-bench-agent")
+    allowed_models: [llama3.2:3b]
+    allowed_tools: []
+    budget: bench
 
 budgets:
   default:
@@ -66,9 +76,24 @@ budgets:
     window_s: 3600
     max_identical: 5
     identical_window_s: 10
+  bench:
+    max_tokens: 10000000
+    max_cost: 1000.0
+    max_requests: 100000
+    window_s: 3600
+    max_identical: 1000
+    identical_window_s: 10
 
 # Controls run in this order (cheap first). A control missing from this list is disabled.
 controls:
+  - id: signatures             # R4/C10/C11/C18: known-attack feed signatures/feed.yaml, hot reloaded
+    kind: signature
+    sides: [input, output]
+    action: block
+    threshold: 0.5             # severity filter: medium and above decide, low stays in the audit
+    on_error: block
+    timeout_ms: 300
+    params: {rule_action: block, disabled_rules: []}
   - id: pii                    # C04: e-mail, phone, PESEL, NIP, REGON, IBAN, card (checksums)
     kind: pii
     sides: [input, output]
@@ -82,6 +107,11 @@ controls:
   - id: injection_heuristics   # C06: EN/PL phrase rules after normalization (homoglyphs, base64)
     kind: injection_heuristics
     sides: [input]
+    action: block
+    threshold: 0.5
+  - id: canary                 # C22: the system-prompt canary the pipeline injects leaks in the output
+    kind: canary
+    sides: [output]
     action: block
     threshold: 0.5
   - id: egress.tool            # C14: tool-call arguments with URLs outside the allowlist (exfiltration)

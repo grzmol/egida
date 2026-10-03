@@ -25,6 +25,7 @@ from control_layer.core.models import (
     Interaction,
     Side,
     Span,
+    ToolDef,
     Usage,
 )
 from control_layer.core.policy import ControlSpec, Policy
@@ -38,8 +39,17 @@ from control_layer.core.ports import (
     PolicySnapshot,
     PolicySource,
     ScanContext,
+    SignatureFeed,
+    ToolPinStore,
 )
 from control_layer.core.texts import apply_redactions
+from control_layer.core.tools import (
+    check_duplicate_tools,
+    check_tools_input,
+    check_tools_output,
+    pin_findings,
+    tool_digest,
+)
 
 __all__ = ["Pipeline", "PipelineResult"]
 
@@ -51,6 +61,7 @@ class PipelineResult:
     usage: Usage | None
     finish_reason: str | None  # upstream finish_reason; None when the model was not called
     policy: PolicySnapshot
+    feed_version: str | None = None  # signature feed version at the start of the request
 
 
 @dataclass(slots=True)
@@ -82,7 +93,9 @@ class Pipeline:
         budgets: BudgetStore,
         audit: AuditSink,
         clock: Clock,
+        tool_pins: ToolPinStore,
         canary_factory: Callable[[], str] = new_canary,
+        feed: SignatureFeed | None = None,
     ) -> None:
         self._policy = policy
         self._detectors = detectors
@@ -90,10 +103,15 @@ class Pipeline:
         self._budgets = budgets
         self._audit = audit
         self._clock = clock
+        self._tool_pins = tool_pins
         self._canary_factory = canary_factory
+        self._feed = feed
 
     async def run(self, interaction: Interaction) -> PipelineResult:
         snapshot = self._policy.current()
+        # a reload during the request may give the detector a newer feed (ms window); the exact
+        # version is in each signature finding's feed.<version> tag
+        feed_version = self._feed.current().version if self._feed else None
         policy = snapshot.policy
         run = _Run()
         started = self._clock.monotonic()
@@ -102,6 +120,7 @@ class Pipeline:
         finish_reason: str | None = None
         reservation: str | None = None
         settled = False
+        submitted_tools = interaction.tools  # C09 pins what the agent sent, pre-redaction
 
         try:
             interaction = await self._timed(run, "limits", self._limits(policy, interaction, run))
@@ -113,6 +132,12 @@ class Pipeline:
                 )
             if run.blocked_by is None:
                 interaction = await self._controls(policy, interaction, Side.INPUT, run)
+            if run.blocked_by is None and submitted_tools:
+                # after input controls: a definition blocked by a signature (SIG-0003) is never
+                # pinned; trust on first use for definitions that passed the scan
+                await self._timed(
+                    run, "tool_pin", self._pin_tools(interaction, submitted_tools, run)
+                )
             if run.blocked_by is None:
                 model_spec = policy.models[interaction.model]
                 upstream = policy.upstreams[model_spec.upstream]
@@ -136,9 +161,16 @@ class Pipeline:
                 usage = result.usage
                 finish_reason = result.finish_reason
                 cost = usage_cost(model_spec, usage)
-                checked = await self._controls(
-                    policy, dataclasses.replace(to_model, output=result.message), Side.OUTPUT, run
-                )
+                with_output = dataclasses.replace(to_model, output=result.message)
+                t0 = self._clock.monotonic()
+                agent = policy.agents[interaction.agent_id]
+                tool_finding = check_tools_output(agent.allowed_tools, with_output)
+                run.latency_ms["output:access.tool"] = _ms(self._clock.monotonic() - t0)
+                if tool_finding is not None:
+                    self._block_with(run, tool_finding)
+                    checked = with_output
+                else:
+                    checked = await self._controls(policy, with_output, Side.OUTPUT, run)
                 interaction = dataclasses.replace(interaction, output=checked.output)
                 if reservation is not None:
                     await self._budgets.settle(reservation, usage, cost)
@@ -159,6 +191,7 @@ class Pipeline:
         await self._audit.emit(
             dataclasses.replace(
                 self._event(snapshot, interaction, "decision"),
+                feed_version=feed_version,
                 decision=decision.action,
                 blocked_by=decision.blocked_by,
                 findings=tuple(
@@ -184,6 +217,7 @@ class Pipeline:
             usage=usage,
             finish_reason=finish_reason,
             policy=snapshot,
+            feed_version=feed_version,
         )
 
     # --- stages -----------------------------------------------------------------------
@@ -211,6 +245,21 @@ class Pipeline:
             self._fixed_block(
                 run, "access.model", Category.ACCESS, f"model {interaction.model!r} not allowed"
             )
+        elif finding := check_tools_input(agent.allowed_tools, interaction):  # C03
+            self._block_with(run, finding)
+
+    async def _pin_tools(
+        self, interaction: Interaction, tools: tuple[ToolDef, ...], run: _Run
+    ) -> None:
+        """C09: duplicate names, then trust-on-first-use pins per agent (rug pull → BLOCK)."""
+        duplicate = check_duplicate_tools(interaction)
+        if duplicate is not None:
+            self._block_with(run, duplicate)
+            return
+        digests = {t.name: tool_digest(t) for t in tools}
+        finding = pin_findings(await self._tool_pins.pin(interaction.agent_id, digests), digests)
+        if finding is not None:
+            self._block_with(run, finding)
 
     async def _reserve(self, policy: Policy, interaction: Interaction, run: _Run) -> str | None:
         agent = policy.agents[interaction.agent_id]
@@ -320,6 +369,11 @@ class Pipeline:
         ]
 
     # --- helpers ----------------------------------------------------------------------
+
+    @staticmethod
+    def _block_with(run: _Run, finding: Finding) -> None:
+        run.judged.append(_Judged(finding, Action.BLOCK))
+        run.block(finding.control_id)
 
     @staticmethod
     def _fixed_block(run: _Run, control_id: str, category: Category, evidence: str) -> None:

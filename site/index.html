@@ -257,7 +257,7 @@ footer { margin-top: var(--s8); padding-top: var(--s4); border-top: 1px solid va
 <tr><td>R1</td><td>Centralny silnik polityk: kontrole, progi, modele, budżety</td><td>Jeden plik YAML ze schematem, przeładowanie bez restartu → <a href="#polityka">Polityka</a></td><td><span class="b b-allow">działa</span></td></tr>
 <tr><td>R2</td><td>Kontrole deterministyczne i semantyczne</td><td>PII, sekrety, heurystyki injection + klasyfikator Prompt Guard 2 → <a href="#kontrole">Kontrole</a></td><td><span class="b b-allow">działa</span></td></tr>
 <tr><td>R3</td><td>Budżety: tokeny, czas, dostęp</td><td>Tokeny, koszt i liczba żądań per agent, wykrywanie pętli, limity wejścia → <a href="#budzety">Budżety</a></td><td><span class="b b-allow">działa</span></td></tr>
-<tr><td>R4</td><td>Znane ataki: wykonanie kodu, deserializacja, łańcuch dostaw</td><td>Allowlista modeli i ścieżek HTTP; feed sygnatur → <a href="#ograniczenia">Plan</a></td><td><span class="b b-redact">częściowo</span></td></tr>
+<tr><td>R4</td><td>Znane ataki: wykonanie kodu, deserializacja, łańcuch dostaw</td><td>Feed sygnatur z przeładowaniem na żywo (pickle, LangChain, Java, reverse shell, <code>curl | sh</code>, <code>rm -rf /</code>, Probllama, tool poisoning), allowlista modeli i ścieżek → <a href="#c10">Sygnatury</a></td><td><span class="b b-allow">działa</span></td></tr>
 <tr><td>R5</td><td>Metryki dla zarządu, logi dla bezpieczeństwa</td><td>Dashboard, <code>/api/stats</code>, audyt z łańcuchem hashy, eksport → <a href="#audyt">Audyt</a></td><td><span class="b b-allow">działa</span></td></tr>
 <tr><td>R6</td><td>Automatyczne testy, przypadki pozytywne i negatywne</td><td>Przypadki w YAML: offline w CI i na żywej instancji → <a href="#testy">Testy</a></td><td><span class="b b-allow">działa</span></td></tr>
 </table></div>
@@ -345,6 +345,11 @@ print(r.headers["x-control-decision"])  # redact</code></pre>
 <tr><td><code>GET /api/stats</code></td><td>decyzje, kontrole, opóźnienia p50/p95, budżety, koszty, błędy upstreamu</td></tr>
 <tr><td><code>GET /api/events</code></td><td>ostatnie zdarzenia audytu</td></tr>
 <tr><td><code>GET /api/audit/export?format=csv|jsonl</code></td><td>eksport audytu</td></tr>
+<tr><td><code>GET /api/signatures</code></td><td>aktywny feed sygnatur: wersja, sha256, reguły, <code>last_error</code></td></tr>
+<tr><td><code>GET /api/signatures/cases?agent=…</code></td><td>testy reguł feedu jako przypadki selftestu</td></tr>
+<tr><td><code>GET /metrics</code></td><td>telemetria w formacie tekstowym Prometheusa (sekundy): p50/p95 per etap, liczniki decyzji, znalezisk i zdarzeń</td></tr>
+<tr><td><code>GET /api/telemetry</code></td><td>to samo jako JSON <code>telemetry.v1</code> (ms), w tym <code>overhead</code>: czas proxy bez modelu</td></tr>
+<tr><td><code>GET /api/audit/verify</code></td><td>weryfikacja łańcucha audytu: 200 gdy cały, 409 z numerem linii i rodzajem uszkodzenia</td></tr>
 </table>
 <p>Każda inna ścieżka dostaje 404. Ollama za proxy wystawia też <code>/api/pull</code> i inne endpointy administracyjne (np. CVE-2024-37032, „Probllama”), których agent nie powinien dosięgnąć.</p>
 <table>
@@ -353,6 +358,7 @@ print(r.headers["x-control-decision"])  # redact</code></pre>
 <tr><td><code>CONTROL_LAYER_AUDIT</code></td><td><code>var/audit.jsonl</code></td><td>plik audytu</td></tr>
 <tr><td><code>CONTROL_LAYER_MODELS_DIR</code></td><td><code>models/</code></td><td>modele ONNX, czytane raz przy starcie</td></tr>
 <tr><td><code>CONTROL_LAYER_GUARD_URL</code></td><td><code>http://127.0.0.1:11434</code></td><td>Ollama (natywne <code>/api/generate</code>) dla modeli guard</td></tr>
+<tr><td><code>CONTROL_LAYER_FEED</code></td><td><code>signatures/feed.yaml</code></td><td>feed sygnatur znanych ataków</td></tr>
 </table>
 <table>
 <tr><th>Klucz demo</th><th>Agent i po co</th></tr>
@@ -360,6 +366,8 @@ print(r.headers["x-control-decision"])  # redact</code></pre>
 <tr><td><code>sk-ci-agent</code></td><td>drugi agent z małym budżetem <code>small</code></td></tr>
 <tr><td><code>sk-tools-agent</code></td><td>agent z narzędziami <code>search_docs</code>, <code>read_file</code>, <code>http_get</code></td></tr>
 <tr><td><code>sk-selftest-agent</code></td><td>selftest na żywo (<code>CONTROL_LAYER_SELFTEST_AGENT=selftest-agent make selftest</code>), własny budżet 2000 żądań/h, żeby nie zjadał budżetu demo</td></tr>
+<tr><td><code>sk-sig-probe-agent</code></td><td>sondy selftestu: przypadki z feedu sygnatur i przypadki z dowolnymi narzędziami (wszystkie narzędzia dozwolone)</td></tr>
+<tr><td><code>sk-bench-agent</code></td><td><code>make bench</code>: pomiar obciążenia na osobnym budżecie</td></tr>
 </table>
 <p>Polityka przechowuje tylko sha256 kluczy.</p>
 </div>
@@ -432,6 +440,10 @@ print(r.headers["x-control-decision"])  # redact</code></pre>
 <tr><td><code>adapters/policy_file.py</code></td><td>przeładowanie na żywo, ostatnia poprawna</td><td><code>PolicySource</code></td></tr>
 <tr><td><code>adapters/budget_memory.py</code></td><td>okno przesuwne per agent, odciski pętli</td><td><code>BudgetStore</code></td></tr>
 <tr><td><code>core/canary.py</code></td><td>C22: format tokenu kanarka i wstrzyknięcie do pierwszej wiadomości <code>system</code> tuż przed modelem; nigdy w odpowiedzi ani audycie</td><td>—</td></tr>
+<tr><td><code>core/signatures.py</code>, <code>core/signature_detector.py</code></td><td>feed znanych ataków: schemat, strażnik regexów, testy reguł przy ładowaniu, silnik dopasowań, przypadki selftestu; detektor <code>kind: signature</code></td><td><code>Detector</code></td></tr>
+<tr><td><code>adapters/feed_file.py</code></td><td>przeładowanie feedu (polling sha256), ostatni poprawny, ochrona przed cofnięciem wersji</td><td><code>SignatureFeed</code></td></tr>
+<tr><td><code>core/tools.py</code>, <code>adapters/tool_pins_memory.py</code></td><td>C03 allowlista narzędzi (zadeklarowane, historia, wywołania modelu), C09 przypinanie hashy definicji narzędzi per agent</td><td><code>ToolPinStore</code></td></tr>
+<tr><td><code>adapters/telemetry.py</code></td><td>percentyle p50/p95 per etap z audytu, <code>overhead</code>, liczniki; <code>/metrics</code> i <code>/api/telemetry</code></td><td><code>AuditSink</code></td></tr>
 <tr><td><code>adapters/audit_jsonl.py</code></td><td>JSONL z łańcuchem hashy, CLI <code>verify</code></td><td><code>AuditSink</code></td></tr>
 <tr><td><code>adapters/metrics_memory.py</code>, <code>dashboard/</code></td><td>liczniki, percentyle, dashboard, eksport</td><td><code>AuditSink</code></td></tr>
 <tr><td><code>adapters/audit_fanout.py</code></td><td>jedno zdarzenie do wielu odbiorców</td><td><code>AuditSink</code></td></tr>
@@ -610,7 +622,7 @@ controls:
 
 <section id="kontrole">
 <h3>Kontrole</h3>
-<p class="tldr">Trzynaście kontroli działa dziś. Limity, dostęp i budżety to etapy pipeline'u; kontrole treści to detektory włączane polityką. Detektory skanują wszystkie teksty żądania: każdą wiadomość (także <code>system</code>, historię i wyniki narzędzi), argumenty wywołań narzędzi i opisy narzędzi, bo tam chowa się pośredni prompt injection.</p>
+<p class="tldr">Dwadzieścia kontroli działa dziś. Limity, dostęp i budżety to etapy pipeline'u; kontrole treści to detektory włączane polityką, a feed sygnatur to plik reguł przeładowywany na żywo. Detektory skanują wszystkie teksty żądania: każdą wiadomość (także <code>system</code>, historię i wyniki narzędzi), argumenty wywołań narzędzi i opisy narzędzi, bo tam chowa się pośredni prompt injection.</p>
 
 <div class="status-groups" id="katalog">
 <div>
@@ -622,26 +634,28 @@ controls:
 <li><code>C05</code> sekrety</li>
 <li><code>C06</code> heurystyki injection EN/PL</li>
 <li><code>C07</code> Prompt Guard 2 (domyślnie wyłączony, włączony w strict)</li>
+<li><code>C09</code> tool poisoning w opisach narzędzi (sygnatura SIG-0003)</li>
+<li><code>C10</code> groźne polecenia w argumentach narzędzi (feed)</li>
+<li><code>C11</code> niebezpieczna deserializacja: pickle, LangChain, Java (feed)</li>
 <li><code>C14</code> <code>egress</code>: eksfiltracja przez URL-e w odpowiedzi</li>
 <li><code>C15</code> budżet tokenów i kosztu</li>
 <li><code>C16</code> pętle agenta, limit żądań</li>
+<li><code>C03</code> allowlista narzędzi per agent, także wywołania wymyślone przez model</li>
+<li><code>C09</code> przypięte definicje narzędzi: zmiana opisu (rug pull) blokuje</li>
 <li><code>C17</code> limity wejścia, <code>max_tokens</code></li>
+<li><code>C18</code> integralność feedu: testy reguł, strażnik regexów, ochrona przed cofnięciem</li>
 <li><code>C19</code> polityka na żywo z walidacją</li>
 <li><code>C20</code> audyt z łańcuchem hashy</li>
 <li><code>C21</code> fail-closed per kontrola</li>
+<li><code>C22</code> kanarek promptu systemowego</li>
 </ul>
 </div>
 <div>
 <h4><span class="b b-info">po drafcie</span></h4>
 <ul>
-<li><code>C03</code> allowlista narzędzi (pole już w schemacie)</li>
-<li><code>C09</code> skan i pinowanie definicji narzędzi</li>
-<li><code>C10</code> sygnatury poleceń w argumentach narzędzi</li>
-<li><code>C11</code> niebezpieczna deserializacja</li>
 <li><code>C12</code> weryfikacja artefaktów modeli</li>
 <li><code>C14</code> <code>egress.tool</code>: URL-e w argumentach narzędzi (kontrola w polityce, włączenie z przypadkami narzędzi)</li>
-<li><code>C18</code> integralność feedu sygnatur</li>
-<li><code>C22</code> kanarek promptu systemowego (wstrzykiwanie w pipeline gotowe, detektor w toku)</li>
+<li>guard LLM dla treści szkodliwych (<code>harmful_content</code>: detektor i klient gotowe, włączenie po próbie z Ollamą)</li>
 </ul>
 </div>
 <div>
@@ -714,6 +728,18 @@ controls:
 <dt>Allowlista</dt><dd>domyślnie zamknięta; dopasowanie na granicy etykiet (<code>bank.example</code> obejmuje <code>a.bank.example</code>, ale nie <code>evilbank.example</code>). W politykach: <code>bank.example</code>, <code>docs.python.org</code></dd>
 <dt>Parametry</dt><dd><code>allowed_domains</code>, <code>scan</code> (<code>content</code> | <code>tool_arguments</code>), <code>links</code> (<code>with_data</code> | <code>all</code>; strict: <code>all</code>)</dd>
 <dt>Plik</dt><dd><code>detectors/egress.py</code> · tagi <code>owasp.llm05-2025</code>, <code>owasp.llm02-2025</code>, <code>atlas.AML.T0077</code> (+ <code>T0086</code> dla narzędzi). <code>egress.tool</code> jest w politykach wyłączony, dopóki runner nie umie podać atrapy <code>tool_calls</code></dd>
+</dl>
+</div>
+
+<div class="sheet" id="c10">
+<div class="sheet-head"><h5>Sygnatury znanych ataków</h5><code>C10 · C11 · C18 · signatures</code><span class="b b-block">pierwsza kontrola: block</span></div>
+<dl>
+<dt>Wykrywa</dt><dd>reguły z <code>signatures/feed.yaml</code>: pickle z wywołaniem systemowym (także protokół 0 i ucięty), LangChain <code>"lc": 1</code> (CVE-2025-68664), Java <code>rO0AB</code>, reverse shell, <code>curl | sh</code>, <code>rm -rf /</code>, wrażliwe ścieżki, tool poisoning w opisach narzędzi, path traversal Probllama</dd>
+<dt>Jak</dt><dd>każda reguła ma zakres (wejście, wynik narzędzia, argumenty, definicja narzędzia, model), dekodowanie (<code>none</code>, <code>base64</code>, <code>url</code>) i matchery (regex, lista słów, prefiks bajtów, importy pickle odczytane przez <code>pickletools</code>, nigdy <code>pickle.loads</code>). Argumenty narzędzi skanowane też jako liście JSON, więc <code>\u0072m -rf /</code> nie przechodzi</dd>
+<dt>Integralność (C18)</dt><dd>reguła musi trafić swoje przykłady ataków i ominąć przykłady nieszkodliwe, inaczej cały feed jest odrzucany; strażnik odrzuca regexy podatne na katastrofalny backtracking; niższa <code>feed_version</code> niż aktywna jest odrzucana; limity skanowania dają <code>control_error</code> (fail-closed), nie obcięcie</dd>
+<dt>Na żywo</dt><dd>zapis pliku → nowa wersja w ok. 1 s, <code>feed_reloaded</code> z diffem reguł; zły plik → <code>feed_rejected</code>, ruch na ostatnim poprawnym feedzie. Testy reguł stają się przypadkami selftestu (<code>/api/signatures/cases</code>), więc nowa reguła od razu ma swoje testy</dd>
+<dt>Próg</dt><dd>filtr ważności: <code>low</code> 0.25, <code>medium</code> 0.5, <code>high</code> 0.75, <code>critical</code> 1.0; domyślnie decyduje od <code>medium</code></dd>
+<dt>Plik</dt><dd><code>core/signatures.py</code>, <code>core/signature_detector.py</code>, <code>adapters/feed_file.py</code> · tagi <code>sig.&lt;ID&gt;</code>, <code>feed.&lt;wersja&gt;</code> + OWASP/ASI/ATLAS/CVE z reguły</dd>
 </dl>
 </div>
 </section>
@@ -991,13 +1017,13 @@ controls:
 <tr><th>Zagrożenie</th><th>Pokrycie dziś</th><th>Po drafcie</th></tr>
 <tr><td>LLM01 Prompt injection · ASI01</td><td>C06, C07; skan wyników i opisów narzędzi</td><td>guard LLM</td></tr>
 <tr><td>LLM02 Ujawnienie danych</td><td>C04, C05 na wejściu i wyjściu</td><td>C14</td></tr>
-<tr><td>LLM03 Łańcuch dostaw</td><td>C02, allowlista ścieżek</td><td>C11, C12</td></tr>
-<tr><td>LLM05 Obsługa wyjścia</td><td>kontrole wyjścia C04, C05</td><td>C10, C14</td></tr>
-<tr><td>LLM06 Nadmierna sprawczość</td><td>C01, C02</td><td>C03</td></tr>
-<tr><td>LLM07 Wyciek promptu systemowego</td><td>C06</td><td>C22</td></tr>
+<tr><td>LLM03 Łańcuch dostaw</td><td>C02, allowlista ścieżek, C11 (pickle, LangChain, Java), Probllama</td><td>C12</td></tr>
+<tr><td>LLM05 Obsługa wyjścia</td><td>kontrole wyjścia C04, C05, C10, C14</td><td>—</td></tr>
+<tr><td>LLM06 Nadmierna sprawczość</td><td>C01, C02, C03 allowlista narzędzi</td><td>—</td></tr>
+<tr><td>LLM07 Wyciek promptu systemowego</td><td>C06, C22 kanarek</td><td>—</td></tr>
 <tr><td>LLM10 Nieograniczone zużycie · ASI08</td><td>C15, C16, C17</td><td>—</td></tr>
 <tr><td>ASI03 Nadużycie tożsamości</td><td>C01, C05</td><td>—</td></tr>
-<tr><td>ASI05 Wykonanie kodu</td><td>—</td><td>C10, C11</td></tr>
+<tr><td>ASI05 Wykonanie kodu</td><td>C10, C11</td><td>—</td></tr>
 </table></div>
 <p class="small">Poza zakresem proxy: zatruwanie danych treningowych (LLM04), bazy wektorowe (LLM08), dezinformacja (LLM09).</p>
 </section>
@@ -1019,10 +1045,8 @@ controls:
 <div>
 <h4>Następne przyrosty</h4>
 <ol>
-<li>feed sygnatur znanych ataków (C10, C11, C18) z przeładowaniem i testami w regułach;</li>
-<li>guard LLM dla treści szkodliwych (<code>llama-guard3:1b</code>, port <code>GuardModelClient</code>);</li>
-<li>kontrole narzędzi (C03, C09) i telemetria;</li>
-<li>kanarek promptu systemowego (C22);</li>
+<li>guard LLM w polityce po próbie z Ollamą (detektor i klient gotowe);</li>
+<li>wpięcie panelu wydajności i odznaki audytu w dashboard (dane już w <code>/api/telemetry</code> i <code>/api/audit/verify</code>);</li>
 <li>Docker Compose, demo agent, garak przed i po proxy, slajdy.</li>
 </ol>
 </div>
@@ -1031,7 +1055,7 @@ controls:
 <table>
 <tr><th>Moment</th><th>Co widzi jury</th></tr>
 <tr><td>W1</td><td>edycja polityki na żywo: ten sam prompt dostaje inną decyzję; zły YAML odrzucony (skrypt: <code>docs/demo.md</code>)</td></tr>
-<tr><td>W2</td><td>nowa sygnatura w feedzie: blokada bez restartu</td></tr>
+<tr><td>W2</td><td>nowa sygnatura (SIG-0005, YAML <code>!!python/object</code>) wklejona do feedu: blokada bez restartu w ok. 1 s, selftest od razu ma 2 nowe przypadki</td></tr>
 <tr><td>W3</td><td>agent w pętli zatrzymany, budżet dochodzi do limitu</td></tr>
 <tr><td>W4</td><td>selftest per kontrola + garak przed i po proxy</td></tr>
 <tr><td>W5</td><td>zatrzymany model: kontrole semantyczne fail-closed, deterministyczne działają dalej</td></tr>

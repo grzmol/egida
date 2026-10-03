@@ -133,6 +133,7 @@
   control: injection_heuristics
   polarity: negative
   request:
+    agent: sig-probe-agent   # any tool allowed: C03 (access.tool) would otherwise block first
     messages:
       - {role: user, content: "Summarize the latest support ticket."}
       - role: assistant
@@ -146,6 +147,7 @@
   control: injection_heuristics
   polarity: negative
   request:
+    agent: sig-probe-agent   # any tool allowed: C03 (access.tool) would otherwise block first
     messages:
       - {role: user, content: "Add 2 and 3."}
     tools:

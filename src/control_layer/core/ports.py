@@ -5,15 +5,18 @@ Frozen contract v1 — changes need an announcement (docs/WORKPLAN.md) and an AD
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import ClassVar, Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, ClassVar, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
 from control_layer.core.audit import AuditEvent
 from control_layer.core.models import BudgetUsage, Finding, Interaction, Message, Side, Usage
 from control_layer.core.policy import BudgetLimits, Policy, UpstreamConfig
+
+if TYPE_CHECKING:  # core.signatures imports this module; the annotation needs no runtime import
+    from control_layer.core.signatures import CompiledFeed
 
 __all__ = [
     "AuditSink",
@@ -24,13 +27,16 @@ __all__ = [
     "Detector",
     "DetectorDeps",
     "DetectorFactory",
+    "FeedSnapshot",
     "GuardModelClient",
     "ModelClient",
     "ModelResult",
     "PolicySnapshot",
     "PolicySource",
     "ScanContext",
+    "SignatureFeed",
     "SupportsWarmUp",
+    "ToolPinStore",
 ]
 
 
@@ -114,6 +120,26 @@ class PolicySource(Protocol):
     def last_error(self) -> str | None: ...
 
 
+# --- signature feed (A5) --------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class FeedSnapshot:
+    feed: CompiledFeed
+    version: str
+    sha256: str
+    loaded_at: float
+    source: str
+
+
+class SignatureFeed(Protocol):
+    """Mirror of PolicySource: the active, already validated feed (last valid on bad edits)."""
+
+    def current(self) -> FeedSnapshot: ...
+
+    def last_error(self) -> str | None: ...
+
+
 # --- budgets --------------------------------------------------------------------
 
 
@@ -144,6 +170,17 @@ class BudgetStore(Protocol):
     async def release(self, reservation_id: str) -> None: ...
 
     def usage(self, agent_id: str) -> BudgetUsage: ...
+
+
+# --- tool pins (C09) ------------------------------------------------------------
+
+
+class ToolPinStore(Protocol):
+    async def pin(self, agent_id: str, digests: Mapping[str, str]) -> dict[str, str]:
+        """digests: tool name -> sha256 of its definition in this request. Atomic, all or
+        nothing: returns {name: pinned digest} for every mismatch and then stores nothing;
+        an empty result means everything matched and new names are now pinned."""
+        ...
 
 
 # --- audit and time -------------------------------------------------------------

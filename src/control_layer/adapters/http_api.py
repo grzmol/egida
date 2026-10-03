@@ -1,7 +1,8 @@
 """OpenAI-compatible HTTP entry point (driving adapter).
 
-Path allowlist: POST /v1/chat/completions, GET /v1/models, GET /healthz. Anything else → 404 in the
-OpenAI error format (closes passthrough of e.g. /api/pull, CVE-2024-37032).
+Path allowlist: POST /v1/chat/completions, GET /v1/models, GET /healthz, GET /metrics, operator
+views under /api. Anything else → 404 in the OpenAI error format (closes passthrough of e.g.
+/api/pull, CVE-2024-37032).
 
 A blocked request is a valid `chat.completion` with HTTP 200 and finish_reason "content_filter",
 plus `X-Control-*` headers and a `control_layer` field ("every decision has a receipt").
@@ -10,6 +11,8 @@ Request and response bodies are never logged.
 
 from __future__ import annotations
 
+import dataclasses
+import functools
 import hashlib
 import hmac
 import json
@@ -17,18 +20,29 @@ import time
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Literal
 
+import anyio
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, ConfigDict, ValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from control_layer.adapters.audit_jsonl import verify_file
+from control_layer.adapters.telemetry import (
+    PROMETHEUS_CONTENT_TYPE,
+    TelemetrySink,
+    render_prometheus,
+    snapshot_to_json,
+)
 from control_layer.core.errors import AuthError, InputError, UpstreamError
 from control_layer.core.models import Action, Interaction, Message, ToolCall, ToolDef
 from control_layer.core.pipeline import Pipeline, PipelineResult
 from control_layer.core.policy import Policy
-from control_layer.core.ports import PolicySource
+from control_layer.core.ports import PolicySource, SignatureFeed
+from control_layer.core.signatures import signature_cases
+from control_layer.core.tools import TOOL_NAME_RE
 
 __all__ = ["Runtime", "install_error_handlers", "router"]
 
@@ -41,7 +55,10 @@ class Runtime:
 
     pipeline: Pipeline
     policy: PolicySource
+    feed: SignatureFeed
     registered_kinds: tuple[str, ...]
+    telemetry: TelemetrySink
+    audit_path: Path
 
 
 # --- request schema (boundary validation) ------------------------------------------
@@ -94,6 +111,8 @@ class _ChatRequest(_In):
     stream: bool = False
     n: int | None = None
     tools: list[_ToolIn] | None = None
+    functions: list[Any] | None = None  # legacy OpenAI fields: rejected, never silently dropped
+    function_call: Any = None
 
 
 _ROLES: dict[str, Literal["system", "user", "assistant", "tool"]] = {
@@ -110,6 +129,8 @@ def _to_interaction(req: _ChatRequest, agent_id: str) -> Interaction:
         raise InputError("only n=1 is supported")
     if not req.messages:
         raise InputError("messages must not be empty")
+    if req.functions is not None or req.function_call is not None:
+        raise InputError("functions/function_call are not supported, use tools/tool_calls")
     messages: list[Message] = []
     for i, m in enumerate(req.messages):
         role = _ROLES.get(m.role)
@@ -128,20 +149,22 @@ def _to_interaction(req: _ChatRequest, agent_id: str) -> Interaction:
                 tool_calls=calls,
             )
         )
-    tools = tuple(
-        ToolDef(
-            name=t.function.name,
-            description=t.function.description,
-            parameters_json=json.dumps(t.function.parameters or {}, sort_keys=True),
+    tools: list[ToolDef] = []
+    for k, t in enumerate(req.tools or ()):
+        if t.type != "function":
+            raise InputError(f"tools[{k}].type {t.type!r} is not supported, use 'function'")
+        if not TOOL_NAME_RE.fullmatch(t.function.name):
+            raise InputError(f"tools[{k}].function.name must match {TOOL_NAME_RE.pattern}")
+        parameters = json.dumps(
+            t.function.parameters or {}, sort_keys=True, separators=(",", ":"), ensure_ascii=False
         )
-        for t in req.tools or ()
-    )
+        tools.append(ToolDef(t.function.name, t.function.description, parameters))
     return Interaction(
         request_id="req_" + uuid.uuid4().hex[:16],
         agent_id=agent_id,
         model=req.model,
         messages=tuple(messages),
-        tools=tools,
+        tools=tuple(tools),
         max_tokens=req.max_completion_tokens or req.max_tokens,
         stream=req.stream,
     )
@@ -232,6 +255,73 @@ async def policy_status(request: Request) -> dict[str, object]:
     }
 
 
+@router.get("/api/signatures")
+async def signatures_status(request: Request) -> dict[str, object]:
+    """Operator view of the active signature feed (no agent key; the proxy listens on localhost)."""
+    feed = _runtime(request).feed
+    snapshot = feed.current()
+    return {
+        "feed_version": snapshot.version,
+        "sha256": snapshot.sha256,
+        "loaded_at": snapshot.loaded_at,
+        "source": snapshot.source,
+        "last_error": feed.last_error(),
+        "rules": [
+            {
+                "id": r.rule.id,
+                "title": r.rule.title,
+                "status": r.rule.status,
+                "severity": r.rule.severity,
+                "action": r.rule.action,
+                "scope": list(r.rule.scope),
+                "tags": list(r.rule.tags),
+                "references": list(r.rule.references),
+                "tests": {
+                    "positive": len(r.rule.tests.positive),
+                    "negative": len(r.rule.tests.negative),
+                },
+            }
+            for r in snapshot.feed.rules
+        ],
+    }
+
+
+@router.get("/api/signatures/cases")
+async def signatures_cases(request: Request, agent: str = "sig-probe-agent") -> dict[str, object]:
+    """The feed rules' own tests as selftest cases for `agent` (R4 + R6, demo W2)."""
+    runtime = _runtime(request)
+    policy = runtime.policy.current().policy
+    if agent not in policy.agents:
+        raise StarletteHTTPException(404)
+    return signature_cases(runtime.feed.current(), policy, agent)
+
+
+@router.get("/metrics")
+async def prometheus_metrics(request: Request) -> Response:
+    """Prometheus text format (operator endpoint, no agent key)."""
+    text = render_prometheus(_runtime(request).telemetry.snapshot())
+    return Response(text, media_type=PROMETHEUS_CONTENT_TYPE)
+
+
+@router.get("/api/telemetry")
+async def telemetry_status(request: Request) -> dict[str, object]:
+    """Per-stage latency percentiles and counters, `telemetry.v1` (operator endpoint)."""
+    return snapshot_to_json(_runtime(request).telemetry.snapshot())
+
+
+@router.get("/api/audit/verify")
+async def audit_verify(request: Request) -> JSONResponse:
+    """Hash-chain check of the audit log: 200 intact, 409 broken (operator endpoint).
+
+    Runs in a worker thread (the cost grows with the file); the line being appended right now
+    is skipped, not reported as truncated."""
+    path = _runtime(request).audit_path
+    result = await anyio.to_thread.run_sync(
+        functools.partial(verify_file, path, allow_partial_tail=True)
+    )
+    return JSONResponse(dataclasses.asdict(result), status_code=200 if result.ok else 409)
+
+
 @router.get("/v1/models")
 async def list_models(request: Request) -> dict[str, object]:
     policy = _runtime(request).policy.current().policy
@@ -271,12 +361,15 @@ async def chat_completions(request: Request) -> Response:
 
 
 def _headers(result: PipelineResult) -> dict[str, str]:
-    return {
+    headers = {
         "X-Control-Decision": result.decision.action.value,
         "X-Control-Request-Id": result.interaction.request_id,
         "X-Policy-Version": str(result.policy.policy.version),
         "X-Policy-Sha256": result.policy.sha256[:12],
     }
+    if result.feed_version is not None:
+        headers["X-Feed-Version"] = result.feed_version
+    return headers
 
 
 def _receipt(result: PipelineResult) -> dict[str, object]:
@@ -284,9 +377,15 @@ def _receipt(result: PipelineResult) -> dict[str, object]:
         "decision": result.decision.action.value,
         "request_id": result.interaction.request_id,
         "policy_version": result.policy.policy.version,
+        "feed_version": result.feed_version,
         "blocked_by": result.decision.blocked_by,
         "controls": [
-            {"id": f.control_id, "category": f.category.value, "score": f.score}
+            {
+                "id": f.control_id,
+                "category": f.category.value,
+                "score": f.score,
+                "tags": list(f.tags),
+            }
             for f in result.decision.findings
         ],
         "errors": [{"id": e.control_id, "kind": e.kind} for e in result.decision.errors],
@@ -302,8 +401,10 @@ def _assistant(result: PipelineResult) -> tuple[dict[str, object], str]:
         )
         return {"role": "assistant", "content": text}, "content_filter"
     output = result.interaction.output
-    message: dict[str, object] = {"role": "assistant", "content": output.content if output else ""}
+    content = output.content if output else ""
+    message: dict[str, object] = {"role": "assistant", "content": content}
     if output and output.tool_calls:
+        message["content"] = content or None  # OpenAI sends null next to tool calls
         message["tool_calls"] = [
             {"id": c.id, "type": "function", "function": {"name": c.name, "arguments": c.arguments}}
             for c in output.tool_calls
@@ -341,6 +442,8 @@ async def _sse(result: PipelineResult) -> AsyncIterator[str]:
         "model": result.interaction.model,
     }
     delta_content = {k: v for k, v in message.items() if k != "role"}
+    if isinstance(calls := delta_content.get("tool_calls"), list):  # stream deltas carry an index
+        delta_content["tool_calls"] = [{"index": i, **c} for i, c in enumerate(calls)]
     chunks: list[dict[str, object]] = [
         {**base, "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}]},
         {**base, "choices": [{"index": 0, "delta": delta_content, "finish_reason": None}]},

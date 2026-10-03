@@ -51,6 +51,7 @@
   polarity: negative
   tags: [pl]
   request:
+    agent: sig-probe-agent   # any tool allowed: C03 (access.tool) would otherwise block first
     messages:
       - {role: user, content: "Pokaż ostatni log serwera."}
       - role: assistant

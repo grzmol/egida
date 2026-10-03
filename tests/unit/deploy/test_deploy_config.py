@@ -12,6 +12,7 @@ from control_layer.adapters.fake_model import FakeGuardModelClient
 from control_layer.app import _build_detectors
 from control_layer.core.policy import build_policy
 from control_layer.core.ports import DetectorDeps
+from control_layer.core.signatures import SIGNATURE_KIND, SignatureParams
 
 ROOT = Path(__file__).resolve().parents[3]
 NATIVE = ROOT / "config" / "policy.yaml"
@@ -35,10 +36,11 @@ def _without_deploy_fields(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 def test_compose_policy_loads() -> None:
-    # Same param models as the running app (which always passes a guard client), so control
-    # params are validated too.
+    # Same param models as the running app (which always passes a guard client and adds the
+    # feed's signature detector), so control params are validated too.
     detectors = _build_detectors(DetectorDeps(guard=FakeGuardModelClient()))
-    build_policy(_load(COMPOSE), {kind: d.Params for kind, d in detectors.items()})
+    params = {kind: d.Params for kind, d in detectors.items()} | {SIGNATURE_KIND: SignatureParams}
+    build_policy(_load(COMPOSE), params)
 
 
 def test_compose_policy_matches_native_except_deploy_fields() -> None:

@@ -1,0 +1,16 @@
+# W2: wklej regułę na koniec rules: w signatures/feed.yaml i podbij feed_version do 1.1.0
+  - id: SIG-0005
+    title: Deserializacja YAML z tagiem python (PyYAML full_load/unsafe_load)
+    status: stable
+    severity: critical
+    action: block
+    scope: [input, tool_call.args, tool_result]
+    decode: none
+    matchers:
+      tag: {regex: '!!python/(object|name|module)'}
+    condition: any
+    tags: [owasp.llm05-2025, asi.asi05, cve.CVE-2020-14343]
+    references: [https://nvd.nist.gov/vuln/detail/CVE-2020-14343]
+    tests:
+      positive: ['!!python/object/apply:os.system ["id"]']
+      negative: ['retries: !!int "3"']

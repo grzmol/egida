@@ -70,6 +70,14 @@ Source: `docs/PLAN.md` §2–§4 and ADR-0001…0004. Summary for agents:
 
 Every increment must pass `docs/PLAN.md` §8 (based on `skill://ai-debt-detector`): green `make check`, positive and negative cases, failure modes handled with specific exceptions, no orphaned resources, no unverified imports, no architecture drift, no TODOs, `docs/ai-usage/<dev>.md` updated, plan status updated.
 
+## Progress Reporting
+
+Every push to GitHub posts task progress to Discord (`.github/workflows/discord-notify.yml`, `scripts/task_progress.py`). The numbers come only from the status column of `docs/tasks/<dev>/README.md`, so an unmarked task counts as not started.
+- When a task from your `docs/tasks/<dev>/README.md` is finished, set its status cell to `☑ <HH:MM> (<branch or PR>)` in the same commit or the next one. Partly done: `◐ <what is left>`. Not started: `☐`. Only the first mark in the cell counts (☑ = 1, ◐ = 0.5, ☐ = 0).
+- A task row is a table row whose first cell links to its spec (`| [A5](A5-....md) | … |`); the status is the last cell. Do not change this layout.
+- Mark only your own tasks. If you did work for someone else's task, tell its owner instead of editing their file.
+- Before yielding, check: `python3 scripts/task_progress.py` shows your share as you expect.
+
 ## Parallel Work (four developers)
 
 `docs/WORKPLAN.md` is binding. **Dev A = Grzegorz** (git author `grzegorz.moldawa@gmail.com`, Claude Code) owns platform files (`core/`, `app.py`, `pyproject.toml`, `Makefile`, proxy/policy/budget/audit adapters, `config/`). **Dev B = Sebastian** (git author `skowron.sebastian`, Claude Code) owns `detectors/`, `metrics_memory.py`, `dashboard/`, `tests/cases/` (except `kamil-*.yaml`), `tests/test_cases.py`. **Dev C = Kamil** (git author: to be added, Gemini CLI via `GEMINI.md`) owns `tests/cases/kamil-*.yaml`, `scripts/prepare_eval_data.py`, `docs/eval/`, `docs/owasp-mapping.md`, `docs/pitch/`, `docs/submission/`, `docs/qa/` — never source code under `src/`. Tasks: `docs/tasks/<grzegorz|sebastian|kamil>/`. Determine the current developer from `git config user.email`; if unclear, ask. Touch only that developer's files; request changes to others' files instead of editing them. AI usage log: `docs/ai-usage/<name>.md`. Workflow per push: `git pull --rebase origin main && make check && git push`.

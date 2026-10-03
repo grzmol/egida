@@ -10,10 +10,26 @@ import dataclasses
 import re
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
+from dataclasses import dataclass
+from typing import Literal
 
 from control_layer.core.models import Interaction, Message, Side, Span, ToolCall, ToolDef
 
-__all__ = ["apply_redactions", "iter_texts"]
+__all__ = ["Scope", "ScopedText", "apply_redactions", "iter_scoped_texts", "iter_texts"]
+
+# Where a text sits, in the vocabulary of the signature feed (research 04 §5).
+Scope = Literal[
+    "input", "output", "tool_definition", "tool_call.args", "tool_result", "model_ref", "artifact"
+]
+
+
+@dataclass(frozen=True, slots=True)
+class ScopedText:
+    scope: Scope
+    target: str
+    text: str
+    redactable: bool  # False for texts apply_redactions cannot rewrite (model, tool parameters)
+
 
 _MESSAGE_CONTENT = re.compile(r"messages\[(\d+)\]\.content")
 _MESSAGE_ARGS = re.compile(r"messages\[(\d+)\]\.tool_calls\[(\d+)\]\.arguments")
@@ -42,6 +58,31 @@ def iter_texts(interaction: Interaction, side: Side) -> Iterator[tuple[str, str]
     yield _OUTPUT_CONTENT, output.content
     for j, call in enumerate(output.tool_calls):
         yield f"output.tool_calls[{j}].arguments", call.arguments
+
+
+def iter_scoped_texts(interaction: Interaction, side: Side) -> Iterator[ScopedText]:
+    """Everything iter_texts yields, classified by feed scope, plus two read-only texts on INPUT:
+    tool parameter schemas and the model reference. `artifact` has no source in proxy traffic."""
+    for target, text in iter_texts(interaction, side):
+        yield ScopedText(_scope_of(interaction, target), target, text, redactable=True)
+    if side is Side.INPUT:
+        for k, tool in enumerate(interaction.tools):
+            yield ScopedText(
+                "tool_definition", f"tools[{k}].parameters_json", tool.parameters_json, False
+            )
+        yield ScopedText("model_ref", "model", interaction.model, redactable=False)
+
+
+def _scope_of(interaction: Interaction, target: str) -> Scope:
+    if m := _MESSAGE_CONTENT.fullmatch(target):
+        return "tool_result" if interaction.messages[int(m[1])].role == "tool" else "input"
+    if _MESSAGE_ARGS.fullmatch(target) or _OUTPUT_ARGS.fullmatch(target):
+        return "tool_call.args"
+    if _TOOL_DESCRIPTION.fullmatch(target):
+        return "tool_definition"
+    if target == _OUTPUT_CONTENT:
+        return "output"
+    raise ValueError(f"unknown text target: {target!r}")
 
 
 def apply_redactions(
