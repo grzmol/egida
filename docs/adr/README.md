@@ -7,9 +7,10 @@ Decyzje architektoniczne projektu. Plan: [`docs/PLAN.md`](../PLAN.md).
 | ADR | Tytuł | Status | Data |
 |---|---|---|---|
 | [0001](0001-architektura-heksagonalna-z-pipeline.md) | Architektura heksagonalna z liniowym pipeline'em kontroli | Accepted | 2026-10-03 |
-| [0002](0002-stack-python-fastapi-ollama.md) | Stack — Python 3.12, FastAPI, Pydantic v2, Ollama | Proposed | 2026-10-03 |
+| [0002](0002-stack-python-fastapi-ollama.md) | Stack — Python 3.12, FastAPI, Pydantic v2, Ollama | Accepted | 2026-10-03 |
 | [0003](0003-polityka-jako-wersjonowany-kontrakt.md) | Polityka jako wersjonowany kontrakt z hot reloadem | Accepted | 2026-10-03 |
 | [0004](0004-semantyka-decyzji-i-obsluga-bledow.md) | Semantyka decyzji i jawna obsługa błędów kontroli | Accepted | 2026-10-03 |
+| [0005](0005-zaleznosci-i-modele-v1.md) | Zależności, modele i kontrakt odpowiedzi blokady v1 | Accepted | 2026-10-03 |
 
 ## Kiedy pisać ADR
 
