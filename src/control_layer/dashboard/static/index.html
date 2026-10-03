@@ -84,6 +84,34 @@
     <pre id="details" class="muted">Click a row to see the full audit event.</pre>
   </section>
 
+  <section aria-labelledby="h-evidence">
+    <h2 id="h-evidence">Evidence (offline runs)</h2>
+    <div id="ev-empty" class="muted">No evidence yet — run <code>scripts/redteam.py</code> and <code>scripts/eval_fpfn.py</code>.</div>
+    <div id="ev-stale" class="banner yellow" role="status"></div>
+    <div id="ev-invalid" class="banner red" role="alert"></div>
+    <div id="ev-redteam" hidden>
+      <h3>Red team (garak 0.17.0)</h3>
+      <div class="kpi" id="ev-asr"></div>
+      <table>
+        <thead><tr><th>Probe</th><th>ASR direct</th><th>ASR via proxy (effective)</th><th>ASR via proxy (garak raw)</th><th>Blocked by</th></tr></thead>
+        <tbody id="ev-probes"></tbody>
+      </table>
+      <p class="muted">garak's MitigationBypass detector counts our block message as a bypass (it has no refusal phrase), so "garak raw" overstates attacks through the proxy; "effective" excludes valid blocks.</p>
+    </div>
+    <div id="ev-eval" hidden>
+      <h3>False positives / negatives (input controls)</h3>
+      <table>
+        <thead><tr><th>Dataset</th><th>n</th><th>TPR [95% CI]</th><th>FPR [95% CI]</th><th>Precision</th><th>Redact on benign</th></tr></thead>
+        <tbody id="ev-files"></tbody>
+      </table>
+      <table>
+        <thead><tr><th>Control</th><th>Blocked attacks</th><th>Blocked benign</th></tr></thead>
+        <tbody id="ev-controls"></tbody>
+      </table>
+    </div>
+    <p id="ev-meta" class="muted"></p>
+  </section>
+
   <section aria-labelledby="h-export">
     <h2 id="h-export">Audit export</h2>
     <a class="button" href="/api/audit/export?format=jsonl">Download JSONL</a>
@@ -203,6 +231,57 @@ function renderEvents(events) {
   }
 }
 
+
+const pctOf = (v) => (v === null || v === undefined ? "–" : (100 * v).toFixed(1) + "%");
+const ci = (pair) => (pair ? " [" + pctOf(pair[0]) + "–" + pctOf(pair[1]) + "]" : "");
+
+function renderEvidence(stats, policy) {
+  const red = stats.redteam, ev = stats.eval;
+  $("ev-empty").hidden = Boolean(red || ev);
+  const problems = [];
+  for (const [name, doc] of [["red team", red], ["FP/FN", ev]]) {
+    if (doc && doc.error) problems.push(name + ": " + doc.error);
+    else if (doc && doc.valid === false) problems.push(name + " invalid: " + (doc.notes || []).join("; "));
+  }
+  $("ev-invalid").style.display = problems.length ? "block" : "none";
+  $("ev-invalid").textContent = problems.join(" · ");
+  const measured = [red, ev].map((d) => d && d.policy && d.policy.source_sha256).find(Boolean);
+  const stale = policy && measured && measured !== policy.sha256;
+  $("ev-stale").style.display = stale ? "block" : "none";
+  $("ev-stale").textContent = stale
+    ? "Stale evidence — measured on policy " + measured.slice(0, 12) + ", active " + policy.sha256.slice(0, 12) : "";
+
+  $("ev-redteam").hidden = !(red && !red.error);
+  if (red && !red.error) {
+    $("ev-asr").textContent = "ASR " + pctOf(red.totals.direct_asr) + " → " + pctOf(red.totals.proxy_asr_effective);
+    const body = $("ev-probes");
+    body.replaceChildren();
+    for (const p of red.probes) {
+      const blocked = p.proxy ? Object.entries(p.proxy.blocked_by).map(([k, v]) => k + " " + v).join(", ") : null;
+      body.appendChild(row([[p.probe], [p.direct ? pctOf(p.direct.asr) : null],
+        [p.proxy ? pctOf(p.proxy.asr_effective) : null], [p.proxy ? pctOf(p.proxy.asr_garak) : null], [blocked]]));
+    }
+  }
+  $("ev-eval").hidden = !(ev && !ev.error);
+  if (ev && !ev.error) {
+    const files = $("ev-files");
+    files.replaceChildren();
+    for (const [name, m] of Object.entries(ev.files)) {
+      files.appendChild(row([[name], [m.n], [m.tpr === null ? "–" : pctOf(m.tpr) + ci(m.tpr_ci95)],
+        [m.fpr === null ? "–" : pctOf(m.fpr) + ci(m.fpr_ci95)], [pctOf(m.precision)], [m.redact_on_benign]]));
+    }
+    const controls = $("ev-controls");
+    controls.replaceChildren();
+    for (const [name, c] of Object.entries(ev.per_control)) {
+      controls.appendChild(row([[name], [c.blocked_attack || 0], [c.blocked_benign || 0]]));
+    }
+  }
+  const doc = ev && !ev.error ? ev : red;
+  $("ev-meta").textContent = doc && !doc.error
+    ? "Measured " + doc.generated_at + " · commit " + (doc.commit || (doc.policy && doc.policy.commit) || "?")
+      + (doc.dirty || (doc.policy && doc.policy.dirty) ? " (dirty)" : "") + " · model " + (doc.model || "?") : "";
+}
+
 async function refresh() {
   const decision = $("filter").value;
   try {
@@ -214,6 +293,7 @@ async function refresh() {
     $("offline").style.display = "none";
     renderPolicy(policy);
     renderStats(stats, policy);
+    renderEvidence(stats, policy);
     renderEvents(events);
   } catch (error) {
     $("offline").style.display = "block";

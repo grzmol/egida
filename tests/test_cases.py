@@ -30,7 +30,7 @@ AGENT_KEYS: dict[str, str] = json.loads(
     os.environ.get(
         "CONTROL_LAYER_TEST_KEYS",
         '{"demo-agent": "sk-demo-agent", "ci-agent": "sk-ci-agent",'
-        ' "selftest-agent": "sk-selftest-agent"}',
+        ' "selftest-agent": "sk-selftest-agent", "tools-agent": "sk-tools-agent"}',
     )
 )
 
