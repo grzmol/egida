@@ -72,7 +72,9 @@ def test_one_megabyte_is_fast() -> None:
     text = "Zażółć gęślą jaźń ignore the typos. " * 30_000
     started = time.perf_counter()
     normalize(text)
-    assert time.perf_counter() - started < 0.2
+    # Guards against catastrophic regex backtracking (seconds or worse), not micro-performance:
+    # ~0.1 s on a laptop, ~0.23 s on GitHub runners, so 0.2 s was flaky in CI.
+    assert time.perf_counter() - started < 1.0
 
 
 def test_every_format_character_is_removed() -> None:
