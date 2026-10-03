@@ -43,7 +43,7 @@ async def test_counts_decisions_controls_errors_and_policy_events() -> None:
     )
     await metrics.emit(decision(Action.REDACT, finding("secrets", Action.REDACT, Category.SECRET)))
     await metrics.emit(decision(Action.ALLOW, finding("prompt_guard", Action.ALLOW)))
-    await metrics.emit(AuditEvent(type="control_error", ts=2.0, blocked_by="prompt_guard"))
+    await metrics.emit(AuditEvent(type="control_error", ts=2.0, control_id="prompt_guard"))
     await metrics.emit(AuditEvent(type="upstream_error", ts=2.5, detail="timeout"))
     await metrics.emit(AuditEvent(type="policy_rejected", ts=3.0, detail="controls.0.threshold"))
     await metrics.emit(
