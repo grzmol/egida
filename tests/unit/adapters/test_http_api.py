@@ -419,3 +419,55 @@ def test_sample_policies_differ_in_strictness(
     with TestClient(create_app(settings, model_client=FakeModelClient())) as c:
         resp = _chat(c, messages=[{"role": "user", "content": text}])
     assert resp.headers["X-Control-Decision"] == decision
+
+
+def test_feed_edits_apply_live(tmp_path: Path) -> None:
+    """Demo W2: a new rule pasted into the feed blocks the same request without a restart, and
+    the selftest gains its cases; a broken feed is rejected while the last valid one keeps
+    protecting traffic."""
+    root = Path(__file__).resolve().parents[3]
+    feed_path = tmp_path / "feed.yaml"
+    seed = (root / "signatures" / "feed.yaml").read_text(encoding="utf-8")
+    feed_path.write_text(seed, encoding="utf-8")
+    settings = Settings(
+        policy_path=root / "config" / "policy.yaml",
+        audit_path=tmp_path / "audit.jsonl",
+        policy_poll_s=0.02,
+        feed_path=feed_path,
+    )
+    yaml_rce = [{"role": "user", "content": '!!python/object/apply:os.system ["id"]'}]
+
+    def write(text: str) -> None:
+        tmp = feed_path.with_suffix(".tmp")
+        tmp.write_text(text, encoding="utf-8")
+        tmp.replace(feed_path)
+
+    demo = (root / "signatures" / "demo" / "sig-0005.yaml").read_text(encoding="utf-8")
+    snippet = "\n".join(line for line in demo.splitlines() if not line.startswith("#"))
+    with_rule = seed.replace("feed_version: 1.0.0", "feed_version: 1.1.0").rstrip() + "\n" + snippet
+    with TestClient(create_app(settings, model_client=FakeModelClient())) as c:
+        before = _chat(c, messages=yaml_rce)
+        assert before.headers["X-Control-Decision"] == "allow"
+        assert before.headers["X-Feed-Version"] == "1.0.0"
+
+        write(with_rule)
+        _wait_for(lambda: _chat(c, messages=yaml_rce).headers["X-Control-Decision"] == "block")
+        after = _chat(c, messages=yaml_rce)
+        assert after.headers["X-Feed-Version"] == "1.1.0"
+        receipt = after.json()["control_layer"]
+        assert receipt["blocked_by"] == "signatures"
+        assert receipt["feed_version"] == "1.1.0"
+        assert "sig.SIG-0005" in receipt["controls"][0]["tags"]
+        ids = {case["id"] for case in c.get("/api/signatures/cases").json()["cases"]}
+        assert {"sig-sig-0005-atk-0", "sig-sig-0005-ok-0"} <= ids
+
+        write(with_rule.replace("retries: !!int", "!!python/object:x"))  # benign test now matches
+        _wait_for(lambda: c.get("/api/signatures").json()["last_error"])
+        assert "own example" in c.get("/api/signatures").json()["last_error"]
+        assert _chat(c, messages=yaml_rce).headers["X-Control-Decision"] == "block"
+        assert c.get("/api/signatures/cases", params={"agent": "nobody"}).status_code == 404
+
+    events = [json.loads(line) for line in settings.audit_path.read_text().splitlines()]
+    feed_events = [e for e in events if e["type"].startswith("feed")]
+    assert [e["type"] for e in feed_events] == ["feed_reloaded", "feed_rejected"]
+    assert "added=[SIG-0005]" in feed_events[0]["detail"]

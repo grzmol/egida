@@ -38,6 +38,7 @@ from control_layer.core.ports import (
     PolicySnapshot,
     PolicySource,
     ScanContext,
+    SignatureFeed,
 )
 from control_layer.core.texts import apply_redactions
 
@@ -51,6 +52,7 @@ class PipelineResult:
     usage: Usage | None
     finish_reason: str | None  # upstream finish_reason; None when the model was not called
     policy: PolicySnapshot
+    feed_version: str | None = None  # signature feed version at the start of the request
 
 
 @dataclass(slots=True)
@@ -83,6 +85,7 @@ class Pipeline:
         audit: AuditSink,
         clock: Clock,
         canary_factory: Callable[[], str] = new_canary,
+        feed: SignatureFeed | None = None,
     ) -> None:
         self._policy = policy
         self._detectors = detectors
@@ -91,9 +94,13 @@ class Pipeline:
         self._audit = audit
         self._clock = clock
         self._canary_factory = canary_factory
+        self._feed = feed
 
     async def run(self, interaction: Interaction) -> PipelineResult:
         snapshot = self._policy.current()
+        # a reload during the request may give the detector a newer feed (ms window); the exact
+        # version is in each signature finding's feed.<version> tag
+        feed_version = self._feed.current().version if self._feed else None
         policy = snapshot.policy
         run = _Run()
         started = self._clock.monotonic()
@@ -159,6 +166,7 @@ class Pipeline:
         await self._audit.emit(
             dataclasses.replace(
                 self._event(snapshot, interaction, "decision"),
+                feed_version=feed_version,
                 decision=decision.action,
                 blocked_by=decision.blocked_by,
                 findings=tuple(
@@ -184,6 +192,7 @@ class Pipeline:
             usage=usage,
             finish_reason=finish_reason,
             policy=snapshot,
+            feed_version=feed_version,
         )
 
     # --- stages -----------------------------------------------------------------------

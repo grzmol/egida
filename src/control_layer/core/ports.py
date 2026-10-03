@@ -7,13 +7,16 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import ClassVar, Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, ClassVar, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
 from control_layer.core.audit import AuditEvent
 from control_layer.core.models import BudgetUsage, Finding, Interaction, Message, Side, Usage
 from control_layer.core.policy import BudgetLimits, Policy, UpstreamConfig
+
+if TYPE_CHECKING:  # core.signatures imports this module; the annotation needs no runtime import
+    from control_layer.core.signatures import CompiledFeed
 
 __all__ = [
     "AuditSink",
@@ -24,12 +27,14 @@ __all__ = [
     "Detector",
     "DetectorDeps",
     "DetectorFactory",
+    "FeedSnapshot",
     "GuardModelClient",
     "ModelClient",
     "ModelResult",
     "PolicySnapshot",
     "PolicySource",
     "ScanContext",
+    "SignatureFeed",
     "SupportsWarmUp",
 ]
 
@@ -110,6 +115,26 @@ class PolicySnapshot:
 
 class PolicySource(Protocol):
     def current(self) -> PolicySnapshot: ...
+
+    def last_error(self) -> str | None: ...
+
+
+# --- signature feed (A5) --------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class FeedSnapshot:
+    feed: CompiledFeed
+    version: str
+    sha256: str
+    loaded_at: float
+    source: str
+
+
+class SignatureFeed(Protocol):
+    """Mirror of PolicySource: the active, already validated feed (last valid on bad edits)."""
+
+    def current(self) -> FeedSnapshot: ...
 
     def last_error(self) -> str | None: ...
 

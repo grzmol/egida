@@ -22,6 +22,7 @@ from control_layer.adapters.audit_fanout import FanoutAuditSink
 from control_layer.adapters.audit_jsonl import AuditJsonl
 from control_layer.adapters.budget_memory import InMemoryBudgetStore
 from control_layer.adapters.clock import SystemClock
+from control_layer.adapters.feed_file import FeedFile
 from control_layer.adapters.http_api import Runtime, install_error_handlers, router
 from control_layer.adapters.metrics_memory import MetricsMemory
 from control_layer.adapters.ollama_client import OllamaClient
@@ -40,6 +41,8 @@ from control_layer.core.ports import (
     ScanContext,
     SupportsWarmUp,
 )
+from control_layer.core.signature_detector import SignatureDetector
+from control_layer.core.signatures import SIGNATURE_KIND
 from control_layer.dashboard import build_router
 from control_layer.detectors import REGISTRY
 
@@ -86,6 +89,7 @@ class Settings:
     audit_path: Path
     policy_poll_s: float = 1.0
     guard_url: str = "http://127.0.0.1:11434"  # Ollama native API for guard models (B6)
+    feed_path: Path = Path("signatures/feed.yaml")  # signature feed of known attacks (A5)
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -93,6 +97,7 @@ class Settings:
             policy_path=Path(os.environ.get("CONTROL_LAYER_POLICY", "config/policy.yaml")),
             audit_path=Path(os.environ.get("CONTROL_LAYER_AUDIT", "var/audit.jsonl")),
             guard_url=os.environ.get("CONTROL_LAYER_GUARD_URL", "http://127.0.0.1:11434"),
+            feed_path=Path(os.environ.get("CONTROL_LAYER_FEED", "signatures/feed.yaml")),
         )
 
 
@@ -132,8 +137,13 @@ def create_app(
         async with httpx.AsyncClient() as http:
             guard = guard_client or OllamaGuardClient(http, cfg.guard_url)
             detectors = _build_detectors(DetectorDeps(guard=guard))
-            param_models = {kind: d.Params for kind, d in detectors.items()}
             audit = FanoutAuditSink([AuditJsonl(cfg.audit_path), metrics])
+            # the feed loads first: its detector must be in param_models before the policy loads
+            feed = FeedFile.load_initial(cfg.feed_path, audit, clock_, interval_s=cfg.policy_poll_s)
+            if SIGNATURE_KIND in detectors:
+                raise RuntimeError(f"detector kind {SIGNATURE_KIND!r} is reserved for the feed")
+            detectors[SIGNATURE_KIND] = SignatureDetector(feed)
+            param_models = {kind: d.Params for kind, d in detectors.items()}
             policy = PolicyFile(
                 cfg.policy_path, param_models, audit, clock_, interval_s=cfg.policy_poll_s
             )
@@ -144,15 +154,20 @@ def create_app(
                 budgets=InMemoryBudgetStore(),
                 audit=audit,
                 clock=clock_,
+                feed=feed,
             )
             app.state.runtime = Runtime(
-                pipeline=pipeline, policy=policy, registered_kinds=tuple(sorted(detectors))
+                pipeline=pipeline,
+                policy=policy,
+                feed=feed,
+                registered_kinds=tuple(sorted(detectors)),
             )
             await _warm_up(detectors, policy.current().policy)
             # startup errors (e.g. invalid policy) above propagate unwrapped; only the poller runs
             # inside the task group, which is cancelled on shutdown (no orphan task)
             async with anyio.create_task_group() as tasks:
                 tasks.start_soon(policy.run)
+                tasks.start_soon(feed.run)
                 yield
                 tasks.cancel_scope.cancel()
 

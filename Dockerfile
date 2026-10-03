@@ -22,13 +22,15 @@ ARG UID=10001
 RUN adduser --disabled-password --gecos "" --home "/nonexistent" \
     --shell "/sbin/nologin" --no-create-home --uid "${UID}" appuser
 WORKDIR /app
-# The venv and config belong to root: appuser cannot change code or policy.
+# The venv, config and signature feed belong to root: appuser cannot change code, policy or rules.
 COPY --from=build /app/.venv /app/.venv
 COPY config /app/config
+COPY signatures /app/signatures
 # /app/var is the only writable directory (audit log).
 RUN mkdir -p /app/var && chown appuser:appuser /app/var
 ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1 \
     CONTROL_LAYER_POLICY=/app/config/policy.yaml \
+    CONTROL_LAYER_FEED=/app/signatures/feed.yaml \
     CONTROL_LAYER_AUDIT=/app/var/audit.jsonl
 USER appuser
 EXPOSE 8080

@@ -45,6 +45,11 @@ agents:
     allowed_models: [llama3.2:3b]
     allowed_tools: [search_docs, read_file, http_get]
     budget: default
+  sig-probe-agent:
+    key_sha256: f9cf298d42631a639f1819067a9b4551aa5f27b819cc41cd7de1b453626cd90c   # sha256("sk-sig-probe-agent")
+    allowed_models: [llama3.2:3b]
+    allowed_tools: ["*"]
+    budget: default
 
 budgets:
   default:
@@ -70,6 +75,14 @@ budgets:
     identical_window_s: 30
 
 controls:
+  - id: signatures
+    kind: signature
+    sides: [input, output]
+    action: block
+    threshold: 0.25            # strict: low-severity rules decide too
+    on_error: block
+    timeout_ms: 300
+    params: {rule_action: block, disabled_rules: []}
   - id: pii
     kind: pii
     sides: [input, output]

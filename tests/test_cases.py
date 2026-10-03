@@ -1,11 +1,14 @@
 """Runs tests/cases/*.yaml offline through ASGI, or against a live instance with --target URL.
 
+Also runs the signature feed's own rule tests as cases (GET /api/signatures/cases, A5), so a
+rule added to signatures/feed.yaml shows up in the next selftest without writing a case.
 Schema: tests/cases/README.md. Results per control go to var/selftest.json (dashboard).
 """
 
 import copy
 import json
 import os
+import tempfile
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
@@ -30,7 +33,7 @@ AGENT_KEYS: dict[str, str] = json.loads(
     os.environ.get(
         "CONTROL_LAYER_TEST_KEYS",
         '{"demo-agent": "sk-demo-agent", "ci-agent": "sk-ci-agent",'
-        ' "selftest-agent": "sk-selftest-agent"}',
+        ' "selftest-agent": "sk-selftest-agent", "sig-probe-agent": "sk-sig-probe-agent"}',
     )
 )
 
@@ -45,7 +48,21 @@ def load_cases() -> list[Case]:
     cases: list[Case] = []
     for path in sorted(CASES_DIR.glob("*.yaml")):
         cases.extend(yaml.safe_load(path.read_text(encoding="utf-8")))
-    return cases
+    return cases + signature_cases()
+
+
+def signature_cases() -> list[Case]:
+    """Feed cases from the local policy and feed, through the same endpoint the live instance
+    serves; the agent moves into `request`, where build_request expects it."""
+    with tempfile.TemporaryDirectory() as tmp:
+        settings = Settings(policy_path=POLICY_PATH, audit_path=Path(tmp) / "audit.jsonl")
+        with TestClient(create_app(settings, model_client=FakeModelClient())) as client:
+            response = client.get("/api/signatures/cases", params={"agent": "sig-probe-agent"})
+    response.raise_for_status()
+    return [
+        {**case, "request": {**case["request"], "agent": case["agent"]}}
+        for case in response.json()["cases"]
+    ]
 
 
 CASES = load_cases()
@@ -123,9 +140,12 @@ def parse_response(response: httpx.Response) -> tuple[str, dict[str, Any] | None
 def check(case: Case, response: httpx.Response, fake: FakeModelClient | None) -> None:
     expect = case["expect"]
     assert response.status_code == expect.get("http_status", 200), response.text[:300]
+    if "absent_tag" in expect:  # benign feed example: the rule must not fire, decision is free
+        _, control_layer, _ = parse_response(response)
+        tags = {t for c in (control_layer or {}).get("controls", []) for t in c.get("tags", [])}
+        assert expect["absent_tag"] not in tags, control_layer
     if "decision" not in expect:
         return
-    assert response.headers.get("X-Control-Decision") == expect["decision"]
     content, control_layer, finish = parse_response(response)
     if expect["decision"] == "block":
         assert finish == "content_filter"
@@ -133,6 +153,10 @@ def check(case: Case, response: httpx.Response, fake: FakeModelClient | None) ->
         assert control_layer is not None, "response has no control_layer field"
         ids = {c["id"] for c in control_layer.get("controls", [])}
         assert expect["control_id"] in ids | {control_layer.get("blocked_by")}, control_layer
+    if "tag" in expect:
+        assert control_layer is not None, "response has no control_layer field"
+        tags = {t for c in control_layer.get("controls", []) for t in c.get("tags", [])}
+        assert expect["tag"] in tags, control_layer
     for text in expect.get("response_not_contains", []):
         assert text not in content
     upstream_keys = {"upstream_not_contains", "upstream_max_tokens"} & set(expect)

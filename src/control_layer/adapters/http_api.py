@@ -1,7 +1,8 @@
 """OpenAI-compatible HTTP entry point (driving adapter).
 
-Path allowlist: POST /v1/chat/completions, GET /v1/models, GET /healthz. Anything else → 404 in the
-OpenAI error format (closes passthrough of e.g. /api/pull, CVE-2024-37032).
+Path allowlist: POST /v1/chat/completions, GET /v1/models, GET /healthz, operator views under
+/api. Anything else → 404 in the OpenAI error format (closes passthrough of e.g. /api/pull,
+CVE-2024-37032).
 
 A blocked request is a valid `chat.completion` with HTTP 200 and finish_reason "content_filter",
 plus `X-Control-*` headers and a `control_layer` field ("every decision has a receipt").
@@ -28,7 +29,8 @@ from control_layer.core.errors import AuthError, InputError, UpstreamError
 from control_layer.core.models import Action, Interaction, Message, ToolCall, ToolDef
 from control_layer.core.pipeline import Pipeline, PipelineResult
 from control_layer.core.policy import Policy
-from control_layer.core.ports import PolicySource
+from control_layer.core.ports import PolicySource, SignatureFeed
+from control_layer.core.signatures import signature_cases
 
 __all__ = ["Runtime", "install_error_handlers", "router"]
 
@@ -41,6 +43,7 @@ class Runtime:
 
     pipeline: Pipeline
     policy: PolicySource
+    feed: SignatureFeed
     registered_kinds: tuple[str, ...]
 
 
@@ -232,6 +235,47 @@ async def policy_status(request: Request) -> dict[str, object]:
     }
 
 
+@router.get("/api/signatures")
+async def signatures_status(request: Request) -> dict[str, object]:
+    """Operator view of the active signature feed (no agent key; the proxy listens on localhost)."""
+    feed = _runtime(request).feed
+    snapshot = feed.current()
+    return {
+        "feed_version": snapshot.version,
+        "sha256": snapshot.sha256,
+        "loaded_at": snapshot.loaded_at,
+        "source": snapshot.source,
+        "last_error": feed.last_error(),
+        "rules": [
+            {
+                "id": r.rule.id,
+                "title": r.rule.title,
+                "status": r.rule.status,
+                "severity": r.rule.severity,
+                "action": r.rule.action,
+                "scope": list(r.rule.scope),
+                "tags": list(r.rule.tags),
+                "references": list(r.rule.references),
+                "tests": {
+                    "positive": len(r.rule.tests.positive),
+                    "negative": len(r.rule.tests.negative),
+                },
+            }
+            for r in snapshot.feed.rules
+        ],
+    }
+
+
+@router.get("/api/signatures/cases")
+async def signatures_cases(request: Request, agent: str = "sig-probe-agent") -> dict[str, object]:
+    """The feed rules' own tests as selftest cases for `agent` (R4 + R6, demo W2)."""
+    runtime = _runtime(request)
+    policy = runtime.policy.current().policy
+    if agent not in policy.agents:
+        raise StarletteHTTPException(404)
+    return signature_cases(runtime.feed.current(), policy, agent)
+
+
 @router.get("/v1/models")
 async def list_models(request: Request) -> dict[str, object]:
     policy = _runtime(request).policy.current().policy
@@ -271,12 +315,15 @@ async def chat_completions(request: Request) -> Response:
 
 
 def _headers(result: PipelineResult) -> dict[str, str]:
-    return {
+    headers = {
         "X-Control-Decision": result.decision.action.value,
         "X-Control-Request-Id": result.interaction.request_id,
         "X-Policy-Version": str(result.policy.policy.version),
         "X-Policy-Sha256": result.policy.sha256[:12],
     }
+    if result.feed_version is not None:
+        headers["X-Feed-Version"] = result.feed_version
+    return headers
 
 
 def _receipt(result: PipelineResult) -> dict[str, object]:
@@ -284,9 +331,15 @@ def _receipt(result: PipelineResult) -> dict[str, object]:
         "decision": result.decision.action.value,
         "request_id": result.interaction.request_id,
         "policy_version": result.policy.policy.version,
+        "feed_version": result.feed_version,
         "blocked_by": result.decision.blocked_by,
         "controls": [
-            {"id": f.control_id, "category": f.category.value, "score": f.score}
+            {
+                "id": f.control_id,
+                "category": f.category.value,
+                "score": f.score,
+                "tags": list(f.tags),
+            }
             for f in result.decision.findings
         ],
         "errors": [{"id": e.control_id, "kind": e.kind} for e in result.decision.errors],

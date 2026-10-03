@@ -43,6 +43,11 @@ agents:
     allowed_models: [llama3.2:3b]
     allowed_tools: [search_docs, read_file, http_get]   # delete_file deliberately missing (ACL scene)
     budget: default
+  sig-probe-agent:             # selftest of the signature feed only (GET /api/signatures/cases)
+    key_sha256: f9cf298d42631a639f1819067a9b4551aa5f27b819cc41cd7de1b453626cd90c   # sha256("sk-sig-probe-agent")
+    allowed_models: [llama3.2:3b]
+    allowed_tools: ["*"]       # probes use unique tool names (sig_probe_*)
+    budget: default
 
 budgets:
   default:
@@ -69,6 +74,14 @@ budgets:
 
 # Controls run in this order (cheap first). A control missing from this list is disabled.
 controls:
+  - id: signatures             # R4/C10/C11/C18: known-attack feed signatures/feed.yaml, hot reloaded
+    kind: signature
+    sides: [input, output]
+    action: block
+    threshold: 0.5             # severity filter: medium and above decide, low stays in the audit
+    on_error: block
+    timeout_ms: 300
+    params: {rule_action: block, disabled_rules: []}
   - id: pii                    # C04: e-mail, phone, PESEL, NIP, REGON, IBAN, card (checksums)
     kind: pii
     sides: [input, output]
