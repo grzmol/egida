@@ -13,6 +13,7 @@ services:
       CONTROL_LAYER_POLICY: /app/config/policy.compose.yaml
       CONTROL_LAYER_AUDIT: /app/var/audit.jsonl
       CONTROL_LAYER_FEED: /app/signatures/feed.yaml
+      CONTROL_LAYER_GUARD_URL: http://ollama:11434   # guard models (B6); the default 127.0.0.1 is the container itself
     volumes:
       - ./config:/app/config:ro          # a DIRECTORY, not the file: editors save by rename, polling must see it
       - ./signatures:/app/signatures:ro  # same for the signature feed (demo W2 edits it live)
