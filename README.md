@@ -94,6 +94,10 @@ Najważniejsze powody:
 
 Pełne wspólne zasady: [`knowledge-base/README.md` §3](knowledge-base/README.md#3-common-rules).
 
+## Plan projektu
+
+Plan ogólny z etapami F0–F7, zasadami ograniczającymi dług techniczny, architekturą i definicją ukończenia: [`docs/PLAN.md`](docs/PLAN.md). Decyzje architektoniczne: [`docs/adr/`](docs/adr/README.md).
+
 ## Struktura repozytorium
 
 | Ścieżka | Zawartość |
@@ -101,5 +105,7 @@ Pełne wspólne zasady: [`knowledge-base/README.md` §3](knowledge-base/README.m
 | [`knowledge-base/README.md`](knowledge-base/README.md) | Indeks bazy wiedzy: porównanie zadań, wspólne zasady, kryteria, sprzeczności w źródłach |
 | [`knowledge-base/tasks/`](knowledge-base/tasks/) | Streszczenia 10 zadań zoptymalizowane pod AI (format HADS) |
 | [`knowledge-base/rules/`](knowledge-base/rules/) | Dosłowne teksty oficjalnych dokumentów — źródło prawdy |
+| [`docs/PLAN.md`](docs/PLAN.md) | Plan projektu: etapy, zasady przeciw długowi technicznemu, architektura, definicja ukończenia |
+| [`docs/adr/`](docs/adr/README.md) | Rejestr decyzji architektonicznych (ADR) |
 | [`AGENTS.md`](AGENTS.md) | Instrukcje dla agentów AI pracujących w repo |
 | `Dockerfile`, `compose.yaml` | Szablon z `docker init` (placeholder); start: `docker compose up --build` |

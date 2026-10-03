@@ -5,7 +5,7 @@ Team repository for the HackYeah 2026 hackathon (Kraków, Oct 3–4, 2026). Read
 ## Project State
 
 - Chosen task: **AI Control Layer** (Partner Task, Goldman Sachs) — spec: `knowledge-base/tasks/partner-goldman-sachs-ai-control-layer.md`. Runner-up: HubMI.pl. Selected 2026-10-03.
-- No application code yet. Stack not decided in the repo — ask the user; do not assume.
+- No application code yet. Plan: `docs/PLAN.md` (phases F0–F7, debt rules, definition of done). Decisions: `docs/adr/`. Stack proposed in ADR-0002 (Python 3.12 + uv + FastAPI + Pydantic v2 + Ollama), status Proposed — confirm with the user before scaffolding code.
 - `Dockerfile`, `compose.yaml`, `.dockerignore`, `README.Docker.md` are the unmodified `docker init` scaffold: Alpine image printing "Hello world" via `/bin/hello.sh`. No ports exposed, no services besides `app`.
 - `README.md` describes the chosen task, the selection analysis, risks, MVP scope and open questions (in Polish). Keep it in sync when the decision or scope changes.
 - The user writes in Polish. Reply in Polish unless asked otherwise.
@@ -17,6 +17,8 @@ Team repository for the HackYeah 2026 hackathon (Kraków, Oct 3–4, 2026). Read
 | `knowledge-base/README.md` | Index: task comparison, common hackathon rules, judging criteria, cross-task conflicts, query routing |
 | `knowledge-base/tasks/<slug>.md` | One AI-optimized summary per task (10 tasks: 5 Open, 5 Partner) |
 | `knowledge-base/rules/<task folder>/*.md` | Verbatim text of the official PDFs/DOCX (originals deleted; these are the source of truth) |
+| `docs/PLAN.md` | Project plan: scope, anti-debt rules, architecture, phases, requirement→test matrix, definition of done, risks |
+| `docs/adr/` | Architecture Decision Records + index |
 | `Dockerfile`, `compose.yaml` | Container scaffold (placeholder) |
 
 ## Answering Questions About the Hackathon
@@ -48,6 +50,21 @@ These come from `knowledge-base/README.md` §3 and apply to all code written her
 - Disclose significant AI tools, external models, APIs, datasets and libraries; cite reused repositories/materials; respect OSS licences.
 - Some partner tasks have stricter requirements (e.g. Huawei requires `AI_WORKFLOW.md` with main prompts; Kraków and HubMI transfer copyright to the sponsor; HubMI is 18+ and on-site). Check the chosen task's file before starting.
 - Never commit secrets, API keys or personal data; `.env` is already excluded from the Docker build context.
+
+## Architecture Guardrails
+
+Source: `docs/PLAN.md` §2–§4 and ADR-0001…0004. Summary for agents:
+- `core/` is framework-free: no FastAPI, httpx, Ollama, file or network imports. Outside world only through ports in `core/ports.py`. Enforced by `import-linter`.
+- Adapters are constructed only in `app.py` (composition root).
+- New control = new `Detector` + policy entry + cases in `tests/cases/`. Never change the pipeline to add a control.
+- Detectors return findings; they never decide or swallow errors. Every control has `timeout` and `on_error` (default `block`).
+- Policy is a versioned Pydantic schema; invalid policy is rejected and the last valid one stays active.
+- No new dependency, model, data format, protocol or port change without an ADR. Pin in `uv.lock`, record licence in `docs/DEPENDENCIES.md`.
+- Work in one vertical increment from `docs/PLAN.md` §5 at a time: failing test first, then code.
+
+## Definition of Done
+
+Every increment must pass `docs/PLAN.md` §8 (based on `skill://ai-debt-detector`): green `make check`, positive and negative cases, failure modes handled with specific exceptions, no orphaned resources, no unverified imports, no architecture drift, no TODOs, `docs/AI_USAGE.md` updated, plan status updated.
 
 ## Docker
 
