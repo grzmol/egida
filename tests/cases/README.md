@@ -26,7 +26,7 @@ Fake model reply (ASGI): `"OK"` unless `model_reply` is set.
 | `expect.response_not_contains` | strings that must not appear in the response content |
 | `expect.upstream_not_contains` | strings that must not reach the model (ASGI only) |
 | `expect.upstream_max_tokens` | `max_tokens` the model received (ASGI only) |
-| `tags` | `offline-only` (needs `model_reply` or `policy_patch`, skipped with `--target`), `pl`, `judge-likely` (jury will likely try it), `semantic` (needs a real model), `needs-budget-store` (strict xfail until A3) |
+| `tags` | `offline-only` (needs `model_reply` or `policy_patch`, skipped with `--target`), `pl`, `judge-likely` (jury will likely try it), `semantic` (needs a real model), `needs-budget-store` (strict xfail until A3), `known-gap` (valid expectation the current detectors miss; strict xfail, remove the tag when the detector is fixed) |
 
 Sources: docs/research/11-brainstorm-red-team.md §1–§4, docs/research/03-testy-i-red-teaming.md §4.
 All personal data and credentials here are fictitious or published documentation examples.
