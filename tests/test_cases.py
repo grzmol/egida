@@ -199,6 +199,10 @@ def test_case(
         pytest.skip(f"control {case['control']} is not enabled in {POLICY_PATH}")
     if "needs-budget-store" in tags:  # strict: turns red once budgets work, then drop the tag
         request.applymarker(pytest.mark.xfail(reason="budget store lands in A3", strict=True))
+    if "known-gap" in tags:  # strict: turns red once a detector catches it, then drop the tag
+        request.applymarker(
+            pytest.mark.xfail(reason="known detector gap (tests/cases/README.md)", strict=True)
+        )
     outcome = "failed"
     try:
         if live_client is None:
