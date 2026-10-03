@@ -120,9 +120,13 @@ class HarmfulContentDetector:
     Params: ClassVar[type[BaseModel]] = HarmfulContentParams
 
     def __init__(self, guard: GuardModelClient | None) -> None:
-        if guard is None:
+        self._guard_client = guard  # None: built anyway, every scan fails into on_error
+
+    @property
+    def _guard(self) -> GuardModelClient:
+        if self._guard_client is None:
             raise RuntimeError("guard client not configured")
-        self._guard = guard
+        return self._guard_client
 
     async def warm_up(self, params: BaseModel) -> None:
         if not isinstance(params, HarmfulContentParams):

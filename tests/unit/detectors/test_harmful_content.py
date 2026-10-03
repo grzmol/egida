@@ -154,8 +154,12 @@ async def test_warm_up_loads_the_model_and_missing_guard_fails_loudly() -> None:
     guard = FakeGuard("safe")
     await HarmfulContentDetector(guard).warm_up(HarmfulContentParams())
     assert guard.loaded == ["llama-guard3:1b"]
+    unconfigured = HarmfulContentDetector(None)  # the app still starts without a guard client
     with pytest.raises(RuntimeError, match="guard client not configured"):
-        HarmfulContentDetector(None)
+        await unconfigured.scan(
+            ScanContext(chat(Message(role="user", content="Hi")), Side.INPUT, "harmful",
+                        HarmfulContentParams())
+        )  # fmt: skip
 
 
 def test_params_validate_categories_and_limits() -> None:

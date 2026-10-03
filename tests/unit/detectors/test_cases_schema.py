@@ -1,5 +1,6 @@
 """Metadata checks for tests/cases/*.yaml (PLAN Z5): every control has both polarities."""
 
+import json
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -43,3 +44,13 @@ def test_every_control_has_negative_and_positive_case() -> None:
         polarities[case["control"]].add(case["polarity"])
     missing = {c: p for c, p in polarities.items() if p != {"negative", "positive"}}
     assert not missing
+
+
+def test_tool_definitions_are_identical_everywhere() -> None:
+    """C09 pins a tool definition per (agent, name): one name must have one definition."""
+    demo = json.loads((CASES_DIR.parents[1] / "scripts" / "demo_tools.json").read_text())
+    definitions: defaultdict[str, set[str]] = defaultdict(set)
+    tools = [t for c in load_cases() for t in (c.get("request") or {}).get("tools", [])]
+    for tool in [*demo, *tools]:
+        definitions[tool["function"]["name"]].add(json.dumps(tool, sort_keys=True))
+    assert {name: len(v) for name, v in definitions.items() if len(v) > 1} == {}

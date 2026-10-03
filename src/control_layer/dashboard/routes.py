@@ -58,8 +58,31 @@ def read_selftest(path: Path) -> dict[str, object] | None:
     return {**report, "mtime": path.stat().st_mtime}
 
 
+EVIDENCE_MAX_BYTES = 1_000_000
+
+
+def read_evidence(path: Path, schema: str) -> dict[str, object] | None:
+    """Offline evidence (B8) for the dashboard; a bad file is reported, never a 500."""
+    if not path.is_file():
+        return None
+    if path.stat().st_size > EVIDENCE_MAX_BYTES:
+        return {"error": f"{path.name} is larger than {EVIDENCE_MAX_BYTES} bytes"}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        return {"error": f"unreadable {path.name}: {e}"}
+    if not isinstance(data, dict) or data.get("schema") != schema:
+        return {"error": f"{path.name}: expected schema {schema}"}
+    return {**data, "mtime": path.stat().st_mtime}
+
+
 def build_router(
-    metrics: MetricsMemory, audit_path: Path, selftest_path: Path = Path("var/selftest.json")
+    metrics: MetricsMemory,
+    audit_path: Path,
+    selftest_path: Path = Path("var/selftest.json"),
+    *,
+    redteam_path: Path = Path("var/redteam/summary.json"),
+    eval_path: Path = Path("var/eval.json"),
 ) -> APIRouter:
     router = APIRouter()
 
@@ -69,7 +92,12 @@ def build_router(
 
     @router.get("/api/stats")
     def stats() -> dict[str, object]:  # reads var/selftest.json: threadpool
-        return {**metrics.stats(), "selftest": read_selftest(selftest_path)}
+        return {
+            **metrics.stats(),
+            "selftest": read_selftest(selftest_path),
+            "redteam": read_evidence(redteam_path, "redteam.v1"),
+            "eval": read_evidence(eval_path, "eval.v1"),
+        }
 
     @router.get("/api/events")
     async def events(
