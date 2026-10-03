@@ -1,0 +1,77 @@
+# LENIENT sample policy (deliverable "Sample Configuration"). Same schema as policy.yaml.
+# Run: CONTROL_LAYER_POLICY=config/policy.lenient.yaml make run
+# Differences from policy.yaml: redact instead of block where possible, higher thresholds,
+# a failing semantic control lets traffic through (on_error: allow), bigger limits and budgets.
+version: 1
+
+defaults:
+  on_error: block              # deterministic controls stay fail-closed
+  timeout_ms: 2000
+
+limits:
+  max_input_chars: 200000
+  max_messages: 200
+  max_tokens: 2048
+
+upstreams:
+  ollama:
+    base_url: http://127.0.0.1:11434/v1
+    timeout_s: 120
+
+models:
+  llama3.2:3b:
+    upstream: ollama
+    price_in_per_1k: 0.0002
+    price_out_per_1k: 0.0006
+
+agents:
+  demo-agent:
+    key_sha256: 337d3b58b003feda566bd8b4a36d7cdb732ec597f01fe52542cbfd873b1c7ba0   # sha256("sk-demo-agent")
+    allowed_models: [llama3.2:3b]
+    allowed_tools: []
+    budget: default
+  ci-agent:
+    key_sha256: 327f34df0219d1f894d2b0ac3db43467a29fd76d4d65f6c499c32c8bce0b39d7   # sha256("sk-ci-agent")
+    allowed_models: [llama3.2:3b]
+    allowed_tools: []
+    budget: small
+
+budgets:
+  default:
+    max_tokens: 200000
+    max_cost: 5.0
+    max_requests: 1000
+    window_s: 3600
+    max_identical: 10
+    identical_window_s: 10
+  small:
+    max_tokens: 20000
+    max_cost: 0.5
+    max_requests: 100
+    window_s: 3600
+    max_identical: 5
+    identical_window_s: 10
+
+controls:
+  - id: pii
+    kind: pii
+    sides: [input, output]
+    action: redact
+    threshold: 0.5
+  - id: secrets
+    kind: secrets
+    sides: [input, output]
+    action: redact             # lenient: mask keys instead of refusing the request
+    threshold: 0.9             # only strong patterns, entropy-only matches pass
+  - id: injection_heuristics
+    kind: injection_heuristics
+    sides: [input]
+    action: block
+    threshold: 0.9             # explicit phrases only; mixed-script words alone pass
+  - id: prompt_guard
+    kind: prompt_guard
+    sides: [input]
+    action: block
+    threshold: 0.98
+    timeout_ms: 800
+    on_error: allow            # lenient: model down or slow does not stop traffic

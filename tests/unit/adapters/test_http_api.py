@@ -342,3 +342,22 @@ def test_detector_failing_at_startup_fails_closed(
     ]
     assert errors[0]["control_id"] == "keyword"
     assert "make models" in errors[0]["detail"]
+
+
+@pytest.mark.parametrize(
+    ("policy_file", "text", "decision"),
+    [
+        ("config/policy.yaml", "PESEL 44051401359", "redact"),
+        ("config/policy.strict.yaml", "PESEL 44051401359", "block"),
+        ("config/policy.lenient.yaml", "PESEL 44051401359", "redact"),
+        ("config/policy.yaml", "key AKIAIOSFODNN7EXAMPLE", "block"),
+        ("config/policy.lenient.yaml", "key AKIAIOSFODNN7EXAMPLE", "redact"),
+    ],
+)
+def test_sample_policies_differ_in_strictness(
+    policy_file: str, text: str, decision: str, tmp_path: Path
+) -> None:
+    settings = Settings(policy_path=Path(policy_file), audit_path=tmp_path / "audit.jsonl")
+    with TestClient(create_app(settings, model_client=FakeModelClient())) as c:
+        resp = _chat(c, messages=[{"role": "user", "content": text}])
+    assert resp.headers["X-Control-Decision"] == decision

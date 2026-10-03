@@ -1,6 +1,6 @@
 # ADR-0002: Stack — Python 3.12, FastAPI, Pydantic v2, Ollama
 
-**Status**: Proposed — do akceptacji przez zespół na początku F0
+**Status**: Accepted (3.10, Sync 0) — z poprawkami Z-1: Python 3.12 (modelscan wymaga <3.13), proxy natywnie przez `uv run`, modele ONNX w procesie, Ollama jako natywny proces obok (Metal), Docker Compose jako deliverable. Zależności i modele: ADR-0005.
 **Data**: 2026-10-03
 
 ## Kontekst
