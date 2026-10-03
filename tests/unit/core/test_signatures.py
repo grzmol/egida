@@ -136,6 +136,11 @@ def test_validation_errors_never_echo_rule_tests() -> None:
     [
         ("(a+)+", "nested quantifier"),
         (r"(\w+\s?)*", "nested quantifier"),
+        # security review: forms the old text-based guard missed
+        ("((a+))+$", "nested quantifier"),
+        ("(a|aa)+$", "nested quantifier"),
+        ("(a?){30}a{30}", "nested quantifier"),
+        (r"(\w{2,3})+", "nested quantifier"),
         (r"(a)\1", "backreference"),
         ("a" * 257, "longer than 256"),
         ("[", "invalid regex"),
@@ -145,6 +150,16 @@ def test_regex_guard_rejects_with_matcher_path(pattern: str, reason: str) -> Non
     errors = _errors(_feed(_rule(matchers={"call": {"regex": pattern}})))
     assert errors == [f"rules[0].matchers.call.regex: {errors[0].split(': ', 1)[1]}"]
     assert reason in errors[0]
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    [r"(?:\d{3}){2}", r"(?:ab)+", r"(ba|z|da)?sh\b", r"[a-z]+\s*=", r"(\.\w+)?\s+/dev/"],
+)
+def test_regex_guard_accepts_unambiguous_repeats(pattern: str) -> None:
+    """Fixed counts, single-path bodies and optional groups (max 1) backtrack linearly."""
+    errors = _errors(_feed(_rule(matchers={"call": {"regex": pattern}})))
+    assert not [e for e in errors if ".regex:" in e]
 
 
 def test_regex_guard_collects_every_error() -> None:
@@ -222,6 +237,56 @@ def test_pickle_globals_found_in_protocol_0_4_and_truncated_streams(payload: str
     assert match_unit_text(_globals_rule(), payload) is True
 
 
+def _b64(raw: bytes) -> str:
+    return base64.b64encode(raw).decode()
+
+
+def _only_rule(pattern: str, attack: bytes) -> Any:
+    """A rule with one pickle_globals pattern; compiling it proves `attack` matches."""
+    return _compiled(
+        decode="base64",
+        matchers={"g": {"pickle_globals": [pattern]}},
+        tests={"positive": [_b64(attack)], "negative": ["aGVsbG8gd29ybGQ="]},
+    )
+
+
+# STACK_GLOBAL takes ("os", "system"); "builtins", "len" are pushed and popped as decoys.
+PICKLE_DECOY = b"\x8c\x02os\x8c\x06system\x8c\x08builtins\x8c\x03len00\x93\x8c\x02id\x85R."
+# Same import with the operands stored in the memo first and fetched with BINGET.
+PICKLE_MEMO = (
+    b"\x80\x04\x8c\x02os\x94\x8c\x06system\x94\x8c\x08builtins\x8c\x03len00"
+    b"h\x00h\x01\x93\x8c\x02id\x85R."
+)
+PICKLE_P0_POPEN = b"cos\npopen\n(S'id'\ntR."
+
+
+@pytest.mark.parametrize("raw", [PICKLE_DECOY, PICKLE_MEMO], ids=["decoy", "memo"])
+def test_stack_global_operands_come_from_the_stack_not_the_last_strings(raw: bytes) -> None:
+    assert match_unit_text(_only_rule("os.system", raw), _b64(raw)) is True
+    decoy_rule = _only_rule("builtins.len", pickle.dumps(len, protocol=4))
+    assert match_unit_text(decoy_rule, _b64(raw)) is False
+
+
+def test_protocol_0_popen_global_is_reported() -> None:
+    rule = _only_rule("os.popen", PICKLE_P0_POPEN)
+    assert match_unit_text(rule, _b64(PICKLE_P0_POPEN)) is True
+
+
+def test_stack_global_with_a_non_literal_operand_is_unresolved() -> None:
+    # module name is BININT1 (not a string literal): the scanner cannot know what is imported
+    raw = b"\x80\x04K\x01\x8c\x06system\x93."
+    rule = _only_rule("[?].[?]", raw)
+    assert match_unit_text(rule, _b64(raw)) is True
+    assert match_unit_text(rule, PICKLE_P4_SYSTEM) is False
+
+
+@pytest.mark.parametrize("protocol", [0, 2, 4, 5])
+@pytest.mark.parametrize("value", [{"a": 1, "b": [1, 2]}, [1, "os", "system", (2, 3)], 7])
+def test_benign_pickles_import_nothing(protocol: int, value: object) -> None:
+    rule = _only_rule("*", PICKLE_DECOY)
+    assert match_unit_text(rule, _b64(pickle.dumps(value, protocol=protocol))) is False
+
+
 def test_pickle_globals_benign_and_garbage(monkeypatch: pytest.MonkeyPatch) -> None:
     def forbidden(*args: object, **kwargs: object) -> object:
         raise AssertionError("the engine must never unpickle")
@@ -232,6 +297,8 @@ def test_pickle_globals_benign_and_garbage(monkeypatch: pytest.MonkeyPatch) -> N
     garbage = base64.b64encode(b"\xff\xfe\x00garbage-bytes-here").decode()
     assert match_unit_text(_globals_rule(), benign) is False
     assert match_unit_text(_globals_rule(), garbage) is False
+    for raw in (PICKLE_DECOY, PICKLE_MEMO, PICKLE_P0_POPEN):  # would run `id` if unpickled
+        assert match_unit_text(_only_rule("*", raw), _b64(raw)) is True
 
 
 def _rm_rule() -> Any:
@@ -322,7 +389,7 @@ def test_iter_scoped_texts_classifies_every_input_text() -> None:
         ("tool_call.args", "messages[2].tool_calls[0].arguments", True),
         ("tool_result", "messages[3].content", True),
         ("tool_definition", "tools[0].description", True),
-        ("tool_definition", "tools[0].parameters_json", False),
+        ("tool_definition", "tools[0].parameters_json", True),
         ("model_ref", "model", False),
     ]
     redactable = [s.target for s in iter_scoped_texts(interaction, Side.INPUT) if s.redactable]

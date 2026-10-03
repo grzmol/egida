@@ -13,6 +13,7 @@ import base64
 import binascii
 import fnmatch
 import hashlib
+import importlib
 import json
 import pickletools
 import re
@@ -21,7 +22,7 @@ from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Annotated, Final, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
@@ -66,9 +67,11 @@ MAX_PATTERN_CHARS: Final = 256
 _BASE64_CANDIDATE = re.compile(r"(?<![A-Za-z0-9+/=_-])[A-Za-z0-9+/_-]{16,}={0,2}")
 _LINE_BREAK = re.compile(r"[ \t]*\r?\n[ \t]*")
 _BACKREFERENCE = re.compile(r"\\[1-9]|\(\?P=")
-_NESTED_QUANTIFIER = re.compile(
-    r"\((?:[^()\\]|\\.)*(?:[+*]|\{\d*,\d*\})(?:[^()\\]|\\.)*\)(?:[+*]|\{\d*,\d*\})"
-)
+# stdlib regex parser (private, no stubs; Python pinned to 3.12 in .python-version): the ReDoS
+# guard walks the parse tree instead of pattern text, so extra parentheses cannot hide a repeat
+_SRE_PARSER: Any = importlib.import_module("re._parser")
+_SRE: Any = importlib.import_module("re._constants")
+_SRE_REPEATS = (_SRE.MAX_REPEAT, _SRE.MIN_REPEAT)
 _PICKLE_STRINGS = frozenset(
     {
         "SHORT_BINUNICODE",
@@ -80,6 +83,8 @@ _PICKLE_STRINGS = frozenset(
         "SHORT_BINSTRING",
     }
 )
+UNRESOLVED_PICKLE_GLOBAL: Final = "?.?"
+_PICKLE_OPAQUE: Final = object()
 _PROBE_SCOPES: Final[tuple[Scope, ...]] = (
     "input",
     "tool_result",
@@ -250,14 +255,61 @@ def compile_feed(raw: Mapping[str, object]) -> CompiledFeed:
 
 
 def _regex_problem(pattern: str) -> str | None:
-    """Static guard (Python re has no timeout): reject patterns prone to heavy backtracking."""
+    """Static guard (Python re has no timeout and holds the GIL while matching): reject patterns
+    prone to exponential backtracking. Polynomial chains such as `\\w*\\w*!` stay possible; texts
+    are bounded by C17 and the decode limits."""
     if len(pattern) > MAX_PATTERN_CHARS:
         return f"longer than {MAX_PATTERN_CHARS} characters"
     if _BACKREFERENCE.search(pattern):
         return "backreference"
-    if _NESTED_QUANTIFIER.search(pattern):
+    try:
+        tree = _SRE_PARSER.parse(pattern)
+    except re.error:
+        return None  # reported by re.compile with its message
+    if _risky_repeat(list(tree)):
         return "nested quantifier"
     return None
+
+
+def _risky_repeat(items: list[tuple[Any, Any]]) -> bool:
+    """A repeat (max > 1) whose body can match in more than one way: a variable quantifier
+    `(a+)+`, `(\\w{2,3})+`, an optional item `(a?){30}` or an alternation `(a|aa)+`."""
+    for op, av in items:
+        if op in _SRE_REPEATS:
+            if av[1] > 1 and _ambiguous(list(av[2])):
+                return True
+            if _risky_repeat(list(av[2])):
+                return True
+        elif any(_risky_repeat(list(sub)) for sub in _sre_children(op, av)):
+            return True
+    return False
+
+
+def _ambiguous(items: list[tuple[Any, Any]]) -> bool:
+    for op, av in items:
+        if op in _SRE_REPEATS and av[0] != av[1]:
+            return True
+        if op == _SRE.BRANCH:
+            return True
+        if any(_ambiguous(list(sub)) for sub in _sre_children(op, av)):
+            return True
+    return False
+
+
+def _sre_children(op: Any, av: Any) -> list[Any]:
+    if op in _SRE_REPEATS:
+        return [av[2]]
+    if op == _SRE.SUBPATTERN:
+        return [av[-1]]
+    if op == _SRE.BRANCH:
+        return list(av[1])
+    if op in (_SRE.ASSERT, _SRE.ASSERT_NOT):
+        return [av[1]]
+    if op == _SRE.ATOMIC_GROUP:
+        return [av]
+    if op == _SRE.GROUPREF_EXISTS:
+        return [branch for branch in av[1:] if branch is not None]
+    return []
 
 
 # --- engine -------------------------------------------------------------------------
@@ -416,18 +468,51 @@ def _match_one(
 
 
 def _pickle_globals(raw: bytes) -> list[str]:
-    """'module.name' of GLOBAL / STACK_GLOBAL imports, read with pickletools (never unpickled).
-    A truncated or corrupt stream keeps what was collected before the error."""
+    """'module.name' of GLOBAL / INST / STACK_GLOBAL imports, read with pickletools (never
+    unpickled). STACK_GLOBAL operands come from a simulated stack and memo (MARK, POP, DUP,
+    PUT/GET, ...), so decoy strings cannot stand in for the real import; operands not pushed
+    as plain string literals give UNRESOLVED_PICKLE_GLOBAL. A truncated or corrupt stream
+    keeps what was collected before the error."""
     found: list[str] = []
-    strings: list[str] = []
+    stack: list[object] = []
+    metastack: list[list[object]] = []
+    memo: dict[int, object] = {}
     try:
         for opcode, arg, _ in pickletools.genops(raw):
-            if opcode.name == "GLOBAL" and isinstance(arg, str):
-                found.append(arg.replace(" ", ".", 1))
-            elif opcode.name in _PICKLE_STRINGS:
-                strings.append(arg.decode("latin-1") if isinstance(arg, bytes) else str(arg))
-            elif opcode.name == "STACK_GLOBAL" and len(strings) >= 2:
-                found.append(f"{strings[-2]}.{strings[-1]}")
+            name = opcode.name
+            if name in _PICKLE_STRINGS:
+                stack.append(arg.decode("latin-1") if isinstance(arg, bytes) else str(arg))
+            elif name == "STACK_GLOBAL":
+                module, attr = stack[-2:] if len(stack) >= 2 else [_PICKLE_OPAQUE] * 2
+                del stack[-2:]
+                resolved = isinstance(module, str) and isinstance(attr, str)
+                found.append(f"{module}.{attr}" if resolved else UNRESOLVED_PICKLE_GLOBAL)
+                stack.append(_PICKLE_OPAQUE)
+            elif name == "MARK":
+                metastack.append(stack)
+                stack = []
+            elif name == "POP" and not stack:  # pops the mark itself, like the unpickler
+                stack = metastack.pop() if metastack else []
+            elif name == "DUP":
+                stack.append(stack[-1] if stack else _PICKLE_OPAQUE)
+            elif name == "MEMOIZE":
+                memo[len(memo)] = stack[-1] if stack else _PICKLE_OPAQUE
+            elif name in {"PUT", "BINPUT", "LONG_BINPUT"} and isinstance(arg, int):
+                memo[arg] = stack[-1] if stack else _PICKLE_OPAQUE
+            elif name in {"GET", "BINGET", "LONG_BINGET"} and isinstance(arg, int):
+                stack.append(memo.get(arg, _PICKLE_OPAQUE))
+            else:
+                if name in {"GLOBAL", "INST"} and isinstance(arg, str):
+                    found.append(arg.replace(" ", ".", 1))
+                # Generic stack effect from pickletools' metadata: a mark in stack_before
+                # restores the stack below the mark, then the items before it are popped.
+                before = opcode.stack_before
+                count = len(before)
+                if pickletools.markobject in before:
+                    stack = metastack.pop() if metastack else []
+                    count = before.index(pickletools.markobject)
+                del stack[max(0, len(stack) - count) :]
+                stack.extend(_PICKLE_OPAQUE for _ in opcode.stack_after)
     except ValueError:
         pass
     return found

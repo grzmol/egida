@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import pickle
 from pathlib import Path
 from typing import Any
 
@@ -39,3 +41,11 @@ def test_every_rule_matches_its_attacks_and_spares_its_benign_examples(rule: Com
     assert rule.rule.tests.positive and rule.rule.tests.negative
     assert all(match_unit_text(rule, text) for text in rule.rule.tests.positive)
     assert not any(match_unit_text(rule, text) for text in rule.rule.tests.negative)
+
+
+@pytest.mark.parametrize("protocol", range(pickle.HIGHEST_PROTOCOL + 1))
+def test_sig_0006_spares_benign_pickles_of_every_protocol(protocol: int) -> None:
+    rule = next(r for r in SEED.rules if r.rule.id == "SIG-0006")
+    for value in ({"a": 1, "b": [1, 2]}, [1, "os", "system", (2, 3)], 7, "posix"):
+        payload = base64.b64encode(pickle.dumps(value, protocol=protocol)).decode()
+        assert match_unit_text(rule, payload) is False
