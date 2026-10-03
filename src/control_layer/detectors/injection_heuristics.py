@@ -39,7 +39,7 @@ PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         (
             "ignore_instructions",
             rf"\b(ignore|disregard|forget|bypass)\s+((all|any|the|of|my|these)\s+)*"
-            rf"{_EN_ADJ}\s+(\w+\s+)?{_EN_NOUN}\b",
+            rf"{_EN_ADJ}\s+(\w+\s+){{0,2}}{_EN_NOUN}\b",  # "previous and following instructions"
         ),
         (
             "ignore_everything_before",
@@ -157,7 +157,9 @@ PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         ),
         (
             "role_reset",
-            r"(#{2,}|={3,}|-{3,})\s*(koniec|end of)\s+(kontekstu|context|instrukcji|instructions|"
+            # lookbehinds: try a run only from its first char, else long "-----" runs are O(n^2)
+            r"((?<!#)#{2,}|(?<!=)={3,}|(?<!-)-{3,})\s*(koniec|end of)\s+"
+            r"(kontekstu|context|instrukcji|instructions|"
             r"user input)|\b(nowa rola|new role)\s*:",
         ),
         (
