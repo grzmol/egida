@@ -72,7 +72,7 @@ Every increment must pass `docs/PLAN.md` §8 (based on `skill://ai-debt-detector
 
 ## Parallel Work (two developers)
 
-`docs/WORKPLAN.md` is binding: Dev A owns platform files (`core/`, `app.py`, `pyproject.toml`, `Makefile`, proxy/policy/budget/audit adapters, `config/`), Dev B owns `detectors/`, `metrics_memory.py`, `dashboard/`, `tests/cases/`, `tests/test_cases.py`. Before editing, confirm which developer you are working for and touch only their files; request changes to the other's files instead of editing them. Workflow per push: `git pull --rebase origin main && make check && git push`.
+`docs/WORKPLAN.md` is binding. **Dev A = Grzegorz** (git author `grzegorz.moldawa@gmail.com`) owns platform files (`core/`, `app.py`, `pyproject.toml`, `Makefile`, proxy/policy/budget/audit adapters, `config/`). **Dev B = Sebastian** (git author `skowron.sebastian`) owns `detectors/`, `metrics_memory.py`, `dashboard/`, `tests/cases/`, `tests/test_cases.py`. Determine the current developer from `git config user.email`; if unclear, ask. Touch only that developer's files; request changes to the other's files instead of editing them. AI usage log: `docs/ai-usage/grzegorz.md` / `docs/ai-usage/sebastian.md`. Workflow per push: `git pull --rebase origin main && make check && git push`.
 
 ## Docker
 
