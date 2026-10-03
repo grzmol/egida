@@ -225,11 +225,11 @@ Do tego 5 / 2 przypadki `http` w `tests/cases/access.yaml` (nieznane ścieżki �
 
 ## Raport testów
 
-Stan na 3.10.2026, `main @ 85b0a19` (liczby odświeżamy po freezie na commicie `freeze-0830`/`final`).
+Stan na 3.10.2026, `main @ d1725fe` (liczby odświeżamy po freezie na commicie `freeze-0830`/`final`).
 
 | Co | Polecenie | Wynik |
 |---|---|---|
-| Offline: lint, typy, granice architektury, testy jednostkowe i przypadki YAML | `make check` (testy: `uv run pytest -q`) | 917 passed, 76 skipped |
+| Offline: lint, typy, granice architektury, testy jednostkowe i przypadki YAML | `make check` (testy: `uv run pytest -q`) | 930 passed, 76 skipped |
 | Na żywo: te same przypadki przeciw działającemu proxy | `CONTROL_LAYER_SELFTEST_AGENT=selftest-agent make selftest` | 179 passed, 54 skipped — próba freeze 3.10 ok. 15:20 na `9f9af42`, upstream zastąpiony atrapą HTTP (bez Ollamy) |
 | Wydajność | `make bench` (Maciej, D5, natywnie na `8849425`) | 60 żądań, 2,99 req/s, 0 błędów; blokada p50 4,4 ms vs przepuszczenie p50 2,0 s (czas modelu); narzut proxy p50 2,2 ms ([`docs/tasks/maciej/README.md`](docs/tasks/maciej/README.md)) |
 | Red team i FP/FN | `scripts/redteam.py`, `scripts/eval_fpfn.py` | sekcja [Red team (garak) i FP/FN](#red-team-garak-i-fpfn) |
