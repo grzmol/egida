@@ -20,7 +20,7 @@ from pydantic import BaseModel, ConfigDict
 
 from control_layer.adapters.audit_fanout import FanoutAuditSink
 from control_layer.adapters.audit_jsonl import AuditJsonl
-from control_layer.adapters.budget_passthrough import PassthroughBudgetStore
+from control_layer.adapters.budget_memory import InMemoryBudgetStore
 from control_layer.adapters.clock import SystemClock
 from control_layer.adapters.http_api import Runtime, install_error_handlers, router
 from control_layer.adapters.metrics_memory import MetricsMemory
@@ -107,7 +107,7 @@ def create_app(
                 policy=policy,
                 detectors=detectors,
                 model=model_client or OllamaClient(http),
-                budgets=PassthroughBudgetStore(),
+                budgets=InMemoryBudgetStore(),
                 audit=audit,
                 clock=clock_,
             )
