@@ -1,45 +1,47 @@
 """C04: PII finder (EN/PL) with checksum validation.
 
 Returns spans on the original text. Numbers are accepted only with a valid
-checksum (PESEL, IBAN mod 97, card Luhn), so look-alike order or invoice
-numbers pass. Checksums come from python-stdnum, not hand-written code.
+checksum (PESEL, NIP, IBAN mod 97, card Luhn), so look-alike order or invoice
+numbers pass.
 """
 
 import re
 from collections.abc import Callable
 
-from stdnum import iban, luhn
-from stdnum.pl import pesel
-
-_SEPARATORS = re.compile(r"[ -]")
-
-
-def _digits(match: str) -> str:
-    return _SEPARATORS.sub("", match)
-
-
-def _valid_card(match: str) -> bool:
-    number = _digits(match)
-    return 13 <= len(number) <= 19 and luhn.is_valid(number)
-
+from control_layer.detectors.validators import (
+    is_card,
+    is_iban,
+    is_nip,
+    is_pesel,
+    strip_separators,
+)
 
 # Order matters: earlier patterns win on overlapping spans (an IBAN is not also a card).
-_PATTERNS: tuple[tuple[str, re.Pattern[str], Callable[[str], bool] | None], ...] = (
+PATTERNS: tuple[tuple[str, re.Pattern[str], Callable[[str], bool] | None], ...] = (
     (
         "iban",
         re.compile(r"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,3})?\b"),
-        lambda m: bool(iban.is_valid(m)),
+        is_iban,
     ),
     (
         "iban",  # Polish NRB: IBAN without the "PL" prefix
         re.compile(r"(?<![\d-])\d{2}(?: ?\d{4}){6}(?![\d-])"),
-        lambda m: bool(iban.is_valid("PL" + _digits(m))),
+        lambda m: is_iban("PL" + strip_separators(m)),
     ),
-    ("card", re.compile(r"(?<![\d-])(?:\d[ -]?){12,18}\d(?![\d-])"), _valid_card),
+    (
+        "card",
+        re.compile(r"(?<![\d-])(?:\d[ -]?){12,18}\d(?![\d-])"),
+        lambda m: is_card(strip_separators(m)),
+    ),
+    (
+        "nip",
+        re.compile(r"(?<![\d-])\d{3}[ -]?\d{3}[ -]?\d{2}[ -]?\d{2}(?![\d-])"),
+        lambda m: is_nip(strip_separators(m)),
+    ),
     (
         "pesel",
         re.compile(r"(?<![\d-])\d{6}[ -]?\d{5}(?![\d-])"),
-        lambda m: bool(pesel.is_valid(_digits(m))),
+        lambda m: is_pesel(strip_separators(m)),
     ),
     (
         "phone",
@@ -50,12 +52,15 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str], Callable[[str], bool] | None], ...]
     ),
     ("email", re.compile(r"\b[\w.%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b"), None),
 )
+ENTITIES = frozenset(label for label, _, _ in PATTERNS)
 
 
-def find_pii(text: str) -> list[tuple[str, int, int]]:
-    """(label, start, end) for each PII item in `text`, sorted by position."""
+def find_pii(text: str, entities: frozenset[str] = ENTITIES) -> list[tuple[str, int, int]]:
+    """(label, start, end) for each PII item of the given entity types, sorted by position."""
     hits: list[tuple[str, int, int]] = []
-    for label, pattern, is_valid in _PATTERNS:
+    for label, pattern, is_valid in PATTERNS:
+        if label not in entities:
+            continue
         for m in pattern.finditer(text):
             overlaps = any(m.start() < end and start < m.end() for _, start, end in hits)
             if not overlaps and (is_valid is None or is_valid(m.group())):

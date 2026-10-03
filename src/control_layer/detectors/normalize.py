@@ -24,7 +24,8 @@ _CONFUSABLES = str.maketrans(
     }
 )  # fmt: skip
 
-_B64_TOKEN = re.compile(r"[A-Za-z0-9+/_-]{16,}={0,2}")
+_B64_TOKEN = re.compile(r"[A-Za-z0-9+/_-]+={0,2}")
+_WORD = re.compile(r"\w+")
 _WHITESPACE = re.compile(r"\s+")
 _MIN_PRINTABLE = 0.9
 
@@ -45,14 +46,18 @@ def normalize(text: str) -> str:
     return _WHITESPACE.sub(lambda m: "\n" if "\n" in m.group() else " ", text).strip()
 
 
-def decode_base64_segments(text: str) -> list[str]:
-    """Return printable UTF-8 strings hidden in base64 tokens of 16+ characters.
+def decoded_segments(text: str, min_len: int = 16, max_segments: int = 5) -> list[str]:
+    """Printable UTF-8 strings hidden in base64/base64url tokens of `min_len`+ characters.
 
     Binary payloads (images, archives) fail UTF-8 or the printable ratio and are skipped.
+    At most `max_segments` results, so a flood of tokens cannot multiply the scan work.
     """
-    decoded = []
-    for token in _B64_TOKEN.findall(text):
-        padded = token + "=" * (-len(token) % 4)
+    decoded: list[str] = []
+    for m in _B64_TOKEN.finditer(text):
+        token = m.group()
+        if len(token) < min_len:
+            continue
+        padded = token.rstrip("=") + "=" * (-len(token.rstrip("=")) % 4)
         try:
             raw = base64.b64decode(padded.replace("-", "+").replace("_", "/"), validate=True)
             candidate = raw.decode("utf-8")
@@ -61,10 +66,25 @@ def decode_base64_segments(text: str) -> list[str]:
         printable = sum(c.isprintable() or c.isspace() for c in candidate)
         if candidate and printable / len(candidate) >= _MIN_PRINTABLE:
             decoded.append(candidate)
+            if len(decoded) == max_segments:
+                break
     return decoded
+
+
+def mixed_script_words(text: str) -> int:
+    """Number of words mixing Latin and Cyrillic letters (homoglyph attack signal).
+
+    Greek is left out on purpose: "β-carotene" or "μs" are legitimate.
+    """
+    count = 0
+    for word in _WORD.findall(text):
+        latin = any("a" <= c.lower() <= "z" for c in word)
+        cyrillic = any("\u0400" <= c <= "\u04ff" for c in word)
+        count += latin and cyrillic
+    return count
 
 
 def views(text: str) -> list[str]:
     """Normalized text plus normalized decoded variants (base64 segments, ROT13)."""
-    variants = [text, codecs.encode(text, "rot13"), *decode_base64_segments(text)]
+    variants = [text, codecs.encode(text, "rot13"), *decoded_segments(text)]
     return [normalize(v) for v in variants]

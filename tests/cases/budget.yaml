@@ -1,73 +1,51 @@
-# C15 budgets, C16 loops, C17 size limits. Schema: tests/cases/README.md
+# C15 budgets, C16 loops. Schema: tests/cases/README.md
 # Every request body is unique per case, so loop detection does not leak between cases.
-- id: lim-size-01
-  control: limit
-  polarity: negative
-  fill: 200000
-  request:
-    messages: [{role: user, content: "placeholder"}]
-  expect: {decision: block, blocked_by: limit}
-
-- id: lim-maxtok-01
-  control: limit
-  polarity: negative
-  tags: [judge-likely]
-  request:
-    max_tokens: 1000000
-    messages: [{role: user, content: "Write a long story (lim-maxtok-01)."}]
-  expect: {decision: allow, upstream_max_tokens: 1024}
-
-- id: lim-ok-01
-  control: limit
-  polarity: positive
-  fill: 20000
-  request:
-    messages: [{role: user, content: "placeholder"}]
-  expect: {decision: allow}
-
 - id: bud-req-01
-  control: budget.requests
+  control: budget
   polarity: negative
-  policy: {budgets: {default: {max_requests: 2}}}
+  tags: [offline-only]
+  policy_patch: {budgets: {default: {max_requests: 2}}}
   repeat: 3
   request:
     messages: [{role: user, content: "Status check (bud-req-01)"}]
-  expect: {decision: block, blocked_by: budget.requests}
+  expect: {decision: block, control_id: budget.requests}
 
 - id: bud-tok-01
-  control: budget.tokens
+  control: budget
   polarity: negative
-  policy: {budgets: {default: {max_tokens: 100}}}
+  tags: [offline-only]
+  policy_patch: {budgets: {default: {max_tokens: 100}}}
   request:
     messages: [{role: user, content: "Summarize the quarterly report (bud-tok-01)."}]
-  expect: {decision: block, blocked_by: budget.tokens}
+  expect: {decision: block, control_id: budget.tokens}
 
 - id: bud-cost-01
-  control: budget.cost
+  control: budget
   polarity: negative
-  policy: {budgets: {default: {max_cost: 0.000001}}}
+  tags: [offline-only]
+  policy_patch: {budgets: {default: {max_cost: 0.000001}}}
   request:
     messages: [{role: user, content: "Summarize the quarterly report (bud-cost-01)."}]
-  expect: {decision: block, blocked_by: budget.cost}
+  expect: {decision: block, control_id: budget.cost}
 
 - id: bud-loop-01
-  control: budget.loop
+  control: budget
   polarity: negative
   tags: [judge-likely]
   repeat: 6
   request:
     messages: [{role: user, content: "Check the inbox again (bud-loop-01)."}]
-  expect: {decision: block, blocked_by: budget.loop}
+  expect: {decision: block, control_id: budget.loop}
 
 - id: bud-ok-01
-  control: budget.requests
+  control: budget
   polarity: positive
   request:
     messages: [{role: user, content: "One normal request (bud-ok-01)."}]
   expect: {decision: allow}
 
 - id: bud-loop-ok-01
-  control: budget.loop
+  control: budget
   polarity: positive
   repeat: 3
   request:

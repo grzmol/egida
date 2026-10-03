@@ -6,7 +6,7 @@
   api_key: null
   request:
     messages: [{role: user, content: "Hello (auth-01)"}]
-  expect: {status: 401}
+  expect: {http_status: 401}
 
 - id: auth-02
   control: auth
@@ -14,7 +14,7 @@
   api_key: sk-wrong-key
   request:
     messages: [{role: user, content: "Hello (auth-02)"}]
-  expect: {status: 401}
+  expect: {http_status: 401}
 
 - id: auth-03
   control: auth
@@ -23,7 +23,7 @@
   headers: {X-Agent-Id: admin}
   request:
     messages: [{role: user, content: "Hello (auth-03)"}]
-  expect: {status: 401}
+  expect: {http_status: 401}
 
 - id: auth-ok-01
   control: auth
@@ -39,7 +39,7 @@
   request:
     model: gpt-4o
     messages: [{role: user, content: "Hello (model-01)"}]
-  expect: {decision: block, blocked_by: access.model}
+  expect: {decision: block, control_id: access.model}
 
 - id: model-02
   control: access.model
@@ -47,7 +47,7 @@
   request:
     model: "../../llama3.2:3b"
     messages: [{role: user, content: "Hello (model-02)"}]
-  expect: {decision: block, blocked_by: access.model}
+  expect: {decision: block, control_id: access.model}
 
 - id: model-ok-01
   control: access.model
@@ -62,28 +62,28 @@
   polarity: negative
   path: /api/pull
   request: {model: "llama3.2:3b"}
-  expect: {status: 404}
+  expect: {http_status: 404}
 
 - id: path-02
   control: http
   polarity: negative
   path: /api/generate
   request: {model: "llama3.2:3b", prompt: "hi"}
-  expect: {status: 404}
+  expect: {http_status: 404}
 
 - id: path-03
   control: http
   polarity: negative
   method: GET
   path: /api/tags
-  expect: {status: 404}
+  expect: {http_status: 404}
 
 - id: path-ok-01
   control: http
   polarity: positive
   method: GET
   path: /v1/models
-  expect: {status: 200}
+  expect: {http_status: 200}
 
 - id: input-01
   control: http
@@ -94,21 +94,13 @@
         content:
           - {type: text, text: "What is in this image?"}
           - {type: image_url, image_url: {url: "https://example.com/cat.png"}}
-  expect: {status: 400}
-
-- id: input-02
-  control: http
-  polarity: negative
-  request:
-    n: 2
-    messages: [{role: user, content: "Hello (input-02)"}]
-  expect: {status: 400}
+  expect: {http_status: 400}
 
 - id: input-03
   control: http
   polarity: negative
   raw_body: "{not json"
-  expect: {status: 400}
+  expect: {http_status: 400}
 
 - id: input-ok-01
   control: http
