@@ -1,52 +1,59 @@
-# Comments are provided throughout this file to help you get started.
-# If you need more help, visit the Docker Compose reference guide at
-# https://docs.docker.com/go/compose-spec-reference/
+# AI Control Layer stack. Owner: Maciej (Dev D). Spec: docs/tasks/grzegorz/A7-compose-i-audyt-dlugu.md §3.
+# Run: docker compose up --build. Proxy on 127.0.0.1:8080; Ollama reachable only inside the Compose network (D01).
+name: control-layer
 
-# Here the instructions define your application as a service called "app".
-# This service is built from the Dockerfile in the current directory.
-# You can add other services your application may depend on here, such as a
-# database or a cache. For examples, see the Awesome Compose repository:
-# https://github.com/docker/awesome-compose
 services:
   app:
     build:
       context: .
       target: final
-    # If your application exposes a port, uncomment the following lines and change
-    # the port numbers as needed. The first number is the host port and the second
-    # is the port inside the container.
-    # ports:
-    #   - 8080:8080
+    ports:
+      - "127.0.0.1:8080:8080"           # host loopback only
+    environment:
+      CONTROL_LAYER_POLICY: /app/config/policy.compose.yaml
+      CONTROL_LAYER_AUDIT: /app/var/audit.jsonl
+    volumes:
+      - ./config:/app/config:ro          # a DIRECTORY, not the file: editors save by rename, polling must see it
+      - audit-data:/app/var              # named volume keeps appuser (UID 10001) ownership on any host
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
 
-    # The commented out section below is an example of how to define a PostgreSQL
-    # database that your application can use. `depends_on` tells Docker Compose to
-    # start the database before your application. The `db-data` volume persists the
-    # database data between container restarts. The `db-password` secret is used
-    # to set the database password. You must create `db/password.txt` and add
-    # a password of your choosing to it before running `docker compose up`.
-    #     depends_on:
-    #       db:
-    #         condition: service_healthy
-    #   db:
-    #     image: postgres
-    #     restart: always
-    #     user: postgres
-    #     secrets:
-    #       - db-password
-    #     volumes:
-    #       - db-data:/var/lib/postgresql/data
-    #     environment:
-    #       - POSTGRES_DB=example
-    #       - POSTGRES_PASSWORD_FILE=/run/secrets/db-password
-    #     expose:
-    #       - 5432
-    #     healthcheck:
-    #       test: [ "CMD", "pg_isready" ]
-    #       interval: 10s
-    #       timeout: 5s
-    #       retries: 5
-    # volumes:
-    #   db-data:
-    # secrets:
-    #   db-password:
-    #     file: db/password.txt
+  ollama:
+    image: ollama/ollama:0.32.3
+    volumes:
+      - ollama-models:/root/.ollama
+    # No `ports:` on purpose (D01). EXPOSE 11434 in the image does not publish it on the host.
+    healthcheck:
+      test: ["CMD", "ollama", "list"]    # the image has no curl
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  ollama-pull:
+    image: ollama/ollama:0.32.3
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      # Must list every model in policy.compose.yaml `models:` (and the guard model once a guard control is enabled),
+      # otherwise the semantic control fails closed. Not OLLAMA_MODELS: that is Ollama's model directory.
+      PULL_MODELS: ${PULL_MODELS:-llama3.2:3b}
+    entrypoint: ["/bin/sh", "-c"]
+    command: ['for m in $$PULL_MODELS; do ollama pull "$$m" || exit 1; done']
+    restart: "no"
+
+volumes:
+  ollama-models:
+  audit-data:
