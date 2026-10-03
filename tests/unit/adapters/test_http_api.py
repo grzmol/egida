@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from pydantic import BaseModel, ConfigDict
 
 from control_layer.adapters.audit_jsonl import verify_file
-from control_layer.adapters.fake_model import FakeModelClient
+from control_layer.adapters.fake_model import FakeGuardModelClient, FakeModelClient
 from control_layer.app import Settings, create_app
 from control_layer.core.errors import PolicyError
 from control_layer.core.models import Category, Finding
@@ -237,18 +237,76 @@ def test_invalid_policy_prevents_startup(tmp_path: Path) -> None:
         pass
 
 
-def test_detector_factories_receive_deps(paths: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_detector_factories_receive_the_guard_client(
+    paths: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
     seen: list[DetectorDeps] = []
 
     def factory(deps: DetectorDeps) -> _KeywordDetector:
         seen.append(deps)
         return _KeywordDetector()
 
+    guard = FakeGuardModelClient()
     monkeypatch.setitem(REGISTRY, "test_keyword", factory)
-    with TestClient(create_app(paths, model_client=FakeModelClient())):
+    with TestClient(create_app(paths, model_client=FakeModelClient(), guard_client=guard)):
         pass
     assert len(seen) == 1
-    assert isinstance(seen[0], DetectorDeps)
+    assert seen[0].guard is guard
+
+
+class _GuardedParams(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    guard_model: str = "guard-a"
+
+
+class _GuardedDetector(_KeywordDetector):
+    """Test detector with a model to warm up through the injected guard client."""
+
+    Params: ClassVar[type[BaseModel]] = _GuardedParams
+
+    def __init__(self, deps: DetectorDeps) -> None:
+        assert deps.guard is not None
+        self._guard = deps.guard
+
+    async def warm_up(self, params: BaseModel) -> None:
+        assert isinstance(params, _GuardedParams)
+        await self._guard.load(params.guard_model)
+
+
+def _guarded_policy(tmp_path: Path, policy_dict: dict[str, Any]) -> Settings:
+    control = {"kind": "test_guarded", "sides": ["input"], "action": "block"}
+    policy_dict["controls"] = [
+        {**control, "id": "on", "params": {"guard_model": "guard-on"}},
+        {**control, "id": "off", "enabled": False, "params": {"guard_model": "guard-off"}},
+    ]
+    policy_path = tmp_path / "policy.yaml"
+    policy_path.write_text(yaml.safe_dump(policy_dict), encoding="utf-8")
+    return Settings(policy_path=policy_path, audit_path=tmp_path / "audit.jsonl")
+
+
+def test_startup_warms_up_models_of_enabled_controls_only(
+    tmp_path: Path, policy_dict: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setitem(REGISTRY, "test_guarded", _GuardedDetector)
+    guard = FakeGuardModelClient()
+    app = create_app(
+        _guarded_policy(tmp_path, policy_dict), model_client=FakeModelClient(), guard_client=guard
+    )
+    with TestClient(app):
+        assert guard.loaded == ["guard-on"]
+
+
+def test_failed_warm_up_does_not_stop_startup(
+    tmp_path: Path, policy_dict: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Guard model down at startup: the app serves; in traffic the control's on_error decides."""
+    monkeypatch.setitem(REGISTRY, "test_guarded", _GuardedDetector)
+    guard = FakeGuardModelClient(raise_error=True)
+    app = create_app(
+        _guarded_policy(tmp_path, policy_dict), model_client=FakeModelClient(), guard_client=guard
+    )
+    with TestClient(app) as c:
+        assert c.get("/healthz").status_code == 200
 
 
 def _wait_for(predicate: Any, timeout_s: float = 3.0) -> None:
