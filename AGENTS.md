@@ -5,8 +5,8 @@ Team repository for the HackYeah 2026 hackathon (Kraków, Oct 3–4, 2026). Read
 ## Project State
 
 - Chosen task: **AI Control Layer** (Partner Task, Goldman Sachs) — spec: `knowledge-base/tasks/partner-goldman-sachs-ai-control-layer.md`. Runner-up: HubMI.pl. Selected 2026-10-03.
-- No application code yet. Plan: `docs/PLAN.md` (phases F0–F7, debt rules, definition of done). Decisions: `docs/adr/`. Stack proposed in ADR-0002 (Python 3.12 + uv + FastAPI + Pydantic v2 + Ollama), status Proposed — confirm with the user before scaffolding code.
-- `Dockerfile`, `compose.yaml`, `.dockerignore`, `README.Docker.md` are the unmodified `docker init` scaffold: Alpine image printing "Hello world" via `/bin/hello.sh`. No ports exposed, no services besides `app`.
+- Code: `src/control_layer/` (OpenAI-compatible proxy: `core/` pipeline, adapters, detectors, dashboard). Stack: Python 3.12 + uv + FastAPI + Pydantic v2 + Ollama (ADR-0002). Plan and status: `docs/PLAN.md` (phases F0–F7, debt rules, definition of done). Decisions: `docs/adr/`. Run: `make run`; tests: `make check`.
+- `Dockerfile` builds the proxy image (non-root `appuser`, uid 10001); `compose.yaml` runs the proxy (published on `127.0.0.1:8080` only) and Ollama (no host port, D01). Details: `docs/deploy.md`.
 - `README.md` describes the chosen task, the selection analysis, risks, MVP scope and open questions (in Polish). Keep it in sync when the decision or scope changes.
 - The user writes in Polish. Reply in Polish unless asked otherwise.
 
@@ -19,7 +19,7 @@ Team repository for the HackYeah 2026 hackathon (Kraków, Oct 3–4, 2026). Read
 | `knowledge-base/rules/<task folder>/*.md` | Verbatim text of the official PDFs/DOCX (originals deleted; these are the source of truth) |
 | `docs/PLAN.md` | Project plan: scope, anti-debt rules, architecture, phases, requirement→test matrix, definition of done, risks |
 | `docs/adr/` | Architecture Decision Records + index |
-| `Dockerfile`, `compose.yaml` | Container scaffold (placeholder) |
+| `Dockerfile`, `compose.yaml` | Proxy image and Compose stack with Ollama (`docs/deploy.md`) |
 | `docs/research/` | Landscape of existing tools, threat catalog, test design, persona brainstorms; synthesis + proposed plan changes in `docs/research/README.md` |
 | `docs/WORKPLAN.md` | Two-developer parallel work plan: file ownership, timeline, sync points, git and Claude Code workflow |
 | `CLAUDE.md` | Imports `AGENTS.md` and `docs/WORKPLAN.md` for Claude Code sessions |
@@ -87,5 +87,5 @@ Every push to GitHub posts task progress to Discord (`.github/workflows/discord-
 ## Docker
 
 - Run: `docker compose up --build`.
-- When the stack is chosen, replace the `build` stage and `ENTRYPOINT` in `Dockerfile`, uncomment/adjust `ports` in `compose.yaml`. Keep the non-root `appuser` in the final stage.
+- Keep the non-root `appuser` in the final stage and Ollama without a host port (D01). Compose policy is `config/policy.compose.yaml` and must stay in parity with `config/policy.yaml` (`tests/unit/deploy/`).
 - Build for amd64 hosts from Apple Silicon: `docker build --platform=linux/amd64 -t <name> .`.

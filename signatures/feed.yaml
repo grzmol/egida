@@ -72,12 +72,12 @@ rules:
     scope: [input, tool_call.args, tool_result]
     decode: base64
     matchers:
-      globals: {pickle_globals: ["os.system", "posix.system", "nt.system", "subprocess.*", "builtins.eval", "builtins.exec", "builtins.__import__", "__builtin__.eval", "__builtin__.exec", "runpy.*", "pty.spawn"]}
+      globals: {pickle_globals: ["os.*", "posix.*", "nt.*", "subprocess.*", "builtins.eval", "builtins.exec", "builtins.compile", "builtins.getattr", "builtins.__import__", "__builtin__.eval", "__builtin__.exec", "__builtin__.compile", "__builtin__.getattr", "__builtin__.__import__", "operator.*", "_operator.*", "runpy.*", "pty.spawn", "[?].[?]"]}
     condition: any
     tags: [owasp.llm03-2025, asi.asi05, atlas.AML.T0011.000]
     references: [https://docs.python.org/3/library/pickletools.html]
     tests:
-      positive: ["Y29zCnN5c3RlbQooUydpZCcKdFIu", "gASVHQAAAAAAAACMBXBvc2l4lIwGc3lzdGVtlJOUjAJpZJSFlFKULg==", "gASVHQAAAAAAAACMBXBvc2l4lIwGc3lzdGVtlJOUjA=="]
+      positive: ["Y29zCnN5c3RlbQooUydpZCcKdFIu", "gASVHQAAAAAAAACMBXBvc2l4lIwGc3lzdGVtlJOUjAJpZJSFlFKULg==", "gASVHQAAAAAAAACMBXBvc2l4lIwGc3lzdGVtlJOUjA==", "jAJvc4wGc3lzdGVtjAhidWlsdGluc4wDbGVuMDCTjAJpZIVSLg==", "Y29zCnBvcGVuCihTJ2lkJwp0Ui4="]
       negative: ["gASVFwAAAAAAAAB9lCiMAWGUSwGMAWKUXZQoSwFLAmV1Lg==", "aGVsbG8gd29ybGQ="]
   - id: SIG-0007
     title: Reverse shell w argumentach narzędzia

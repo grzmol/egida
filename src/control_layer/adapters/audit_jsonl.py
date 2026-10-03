@@ -24,7 +24,7 @@ from typing import Any, Literal
 import anyio
 
 from control_layer.core.audit import AuditEvent
-from control_layer.core.errors import ControlLayerError
+from control_layer.core.errors import AuditError
 
 __all__ = [
     "GENESIS_HASH",
@@ -40,10 +40,6 @@ GENESIS_HASH = "0" * 64
 FIRST_SEQ = 1
 
 VerifyErrorKind = Literal["io", "json", "schema", "seq", "prev_hash", "hash", "truncated"]
-
-
-class AuditError(ControlLayerError):
-    """The audit log cannot be continued safely (e.g. corrupted last line)."""
 
 
 def _canonical(record: Mapping[str, object]) -> str:
@@ -91,7 +87,10 @@ class AuditJsonl:
             }
             record["hash"] = line_hash(record)
             line = _canonical(record) + "\n"
-            await anyio.to_thread.run_sync(self._append, line)
+            try:
+                await anyio.to_thread.run_sync(self._append, line)
+            except OSError as exc:  # disk full, permissions: the request must not get an answer
+                raise AuditError(f"cannot write audit log {self._path}: {exc}") from exc
             self._seq = record["seq"]
             self._prev = record["hash"]
 

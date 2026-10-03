@@ -26,7 +26,7 @@ from typing import Any, Literal
 import anyio
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from control_layer.adapters.audit_jsonl import verify_file
@@ -36,7 +36,7 @@ from control_layer.adapters.telemetry import (
     render_prometheus,
     snapshot_to_json,
 )
-from control_layer.core.errors import AuthError, InputError, UpstreamError
+from control_layer.core.errors import AuditError, AuthError, InputError, UpstreamError
 from control_layer.core.models import Action, Interaction, Message, ToolCall, ToolDef
 from control_layer.core.pipeline import Pipeline, PipelineResult
 from control_layer.core.policy import Policy
@@ -74,7 +74,7 @@ class _FunctionIn(_In):
 
 
 class _ToolCallIn(_In):
-    id: str = ""
+    id: str = Field(default="", pattern=r"^[\w.:-]{0,128}$")
     type: str = "function"
     function: _FunctionIn
 
@@ -87,8 +87,9 @@ class _ContentPart(_In):
 class _MessageIn(_In):
     role: str
     content: str | list[_ContentPart] | None = None
-    name: str | None = None
-    tool_call_id: str | None = None
+    # identifiers reach the model but are not scanned: bounded to short, plain tokens
+    name: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{1,64}$")
+    tool_call_id: str | None = Field(default=None, pattern=r"^[\w.:-]{1,128}$")
     tool_calls: list[_ToolCallIn] | None = None
 
 
@@ -104,13 +105,13 @@ class _ToolIn(_In):
 
 
 class _ChatRequest(_In):
-    model: str
+    model: str = Field(max_length=128, pattern=r"^[\w.:/@+-]+$")  # copied into every audit event
     messages: list[_MessageIn]
-    max_tokens: int | None = None
-    max_completion_tokens: int | None = None
+    max_tokens: int | None = Field(default=None, ge=1)  # < 1 would dodge the C17 clamp and C15
+    max_completion_tokens: int | None = Field(default=None, ge=1)
     stream: bool = False
     n: int | None = None
-    tools: list[_ToolIn] | None = None
+    tools: list[_ToolIn] | None = Field(default=None, max_length=128)  # also bounds C09 pins
     functions: list[Any] | None = None  # legacy OpenAI fields: rejected, never silently dropped
     function_call: Any = None
 
@@ -343,6 +344,10 @@ async def chat_completions(request: Request) -> Response:
         payload = await request.json()
     except ValueError as exc:
         raise InputError(f"request body is not valid JSON: {exc}") from exc
+    try:  # JSON may escape lone surrogates, which cannot be hashed, scanned or audited
+        json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise InputError(f"request body is not valid UTF-8 text: {exc.reason}") from exc
     try:
         chat = _ChatRequest.model_validate(payload)
     except ValidationError as exc:
@@ -479,6 +484,11 @@ def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(UpstreamError)
     async def _upstream(_: Request, exc: UpstreamError) -> JSONResponse:
         return _error(502, str(exc), "upstream_error", "bad_gateway")
+
+    @app.exception_handler(AuditError)
+    async def _audit(_: Request, exc: AuditError) -> JSONResponse:
+        # no decision without a receipt (ADR-0004): withhold the answer; the cause is logged
+        return _error(503, "audit log unavailable", "server_error", "audit_unavailable")
 
     @app.exception_handler(StarletteHTTPException)
     async def _http(_: Request, exc: StarletteHTTPException) -> JSONResponse:

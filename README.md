@@ -4,16 +4,19 @@ Repozytorium zespołu na hackathon HackYeah 2026 (Kraków, 3–4 października 2
 
 ## Quick start (EN)
 
-**AI Control Layer** — an OpenAI-compatible proxy that inspects, redacts or blocks agent ↔ model traffic according to one live-editable policy, enforces per-agent budgets, and writes a hash-chained audit log. Runs fully locally. Architecture: [`docs/architecture.md`](docs/architecture.md). Full documentation (decisions, architecture, controls, tests; PL): [`site/index.html`](site/index.html), served by `make docs` on http://127.0.0.1:8000 and published to GitHub Pages by `.github/workflows/pages.yml`.
+**AI Control Layer** — an OpenAI-compatible proxy that inspects, redacts or blocks agent ↔ model traffic according to one live-editable policy, enforces per-agent budgets, and writes a hash-chained audit log. Runs fully locally. Architecture: [`docs/architecture.md`](docs/architecture.md). Full documentation (decisions, architecture, controls, tests; PL): [`site/index.html`](site/index.html), served by `make docs` on http://127.0.0.1:8000 (`.github/workflows/pages.yml` can publish it to GitHub Pages; manual run only).
 
 ```bash
-# requirements: macOS/Linux, uv; for real model answers: Ollama with `ollama pull llama3.2:3b`
+# requirements: macOS/Linux, uv, Ollama (the upstream model; without it allowed requests get 502)
+ollama pull llama3.2:3b
 uv sync
-make run                      # proxy on http://127.0.0.1:8080, policy: config/policy.yaml
-make models                   # optional: Prompt Guard 2 ONNX (needed only if prompt_guard is enabled)
+make run                      # proxy on http://127.0.0.1:8080 (stays in the foreground; use a second terminal)
+# optional, only for the disabled-by-default prompt_guard control: make models
 ```
 
-**Connect an agent — change only `base_url`:**
+Docker instead (proxy plus Ollama, model pulled on first start; about 4.6 GB to download): `docker compose up --build`, details in [`docs/deploy.md`](docs/deploy.md).
+
+**Connect an agent — change only `base_url`** (`uv run --with openai python`):
 
 ```python
 from openai import OpenAI
@@ -37,7 +40,7 @@ curl -s http://127.0.0.1:8080/v1/chat/completions -H 'Authorization: Bearer sk-d
 
 **Telemetry and performance:** `curl -s http://127.0.0.1:8080/metrics` (Prometheus text format, seconds: p50/p95 per stage plus decision, finding and audit-event counters) and `curl -s http://127.0.0.1:8080/api/telemetry` (JSON `telemetry.v1`, milliseconds, used by the dashboard). Stages are the pipeline's `latency_ms` keys (`total`, `upstream` = model call, `access`, `input:<control>`, …) plus the synthetic `overhead` = `total − upstream`, i.e. the time the control layer adds; for a request blocked before the model `overhead == total`. Percentiles cover the last 1024 samples per stage, counts are cumulative; both live in process memory and reset on restart. `make bench` (key `sk-bench-agent`, own budget) measures p50/p95/RPS against a running instance and stores them with the server's telemetry in `var/bench.json`. Audit chain: `GET /api/audit/verify` → 200 `{"ok": true, "events", "last_seq", "head_hash"}` or 409 with `error.{line, seq, kind, message}`; `make verify-audit` exits 0 (intact), 1 (broken, prints the first bad line) or 2 (file unreadable). The chain is not anchored: whoever can write the file can recompute it, so record `head_hash` elsewhere if that matters.
 
-**Tests:** `make check` (lint, types, architecture boundaries, unit + case tests offline) · `make selftest` (the same YAML cases against the running instance, JUnit in `var/selftest.xml`).
+**Tests:** `make check` (lint, types, architecture boundaries, unit + case tests offline) · `make selftest` (the same YAML cases against the running instance as `selftest-agent`, JUnit in `var/selftest.xml`; another instance: `make selftest TARGET=http://host:port`; needs Ollama, otherwise allow/redact cases get 502).
 
 Licences: [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md). Prompt Guard 2 detector: **Built with Llama** (Llama 4 Community License).
 
@@ -81,7 +84,7 @@ Jury bez przygotowania: uruchamia nasz zestaw testów, wpisuje własne prompty d
 
 > Dla zespołów platformowych, które wpuszczają agentów AI do wrażliwych systemów, AI Control Layer to proxy działające w pełni lokalnie. Jeden walidowany plik polityki steruje decyzją ALLOW / REDACT / BLOCK i budżetami. W odróżnieniu od LiteLLM czy agentgateway warstwa semantyczna działa lokalnie, a bezpieczeństwo nie zależy od płatnej licencji ani chmury ([research 01 §4](docs/research/01-gatewaye-i-proxy.md)).
 
-- **Lokalnie i open source.** Proxy, detektory i klasyfikator injection (Llama Prompt Guard 2 w ONNX) działają na laptopie, bez wywołań do chmury. Agent podłącza się przez zmianę `base_url` w kliencie OpenAI.
+- **Lokalnie i open source.** Proxy, detektory i opcjonalny klasyfikator injection (Llama Prompt Guard 2 w ONNX, domyślnie wyłączony, włączony w `policy.strict.yaml`) działają na laptopie, bez wywołań do chmury. Agent podłącza się przez zmianę `base_url` w kliencie OpenAI.
 - **Jedna polityka, zmiana na żywo.** `config/policy.yaml` jest walidowany przy każdej zmianie. Błędna wersja jest odrzucana z podanym powodem, a ruch chroni ostatnia poprawna. Wyłączenie kontroli dashboard oznacza jako „posture weakened”.
 - **Każda decyzja ma paragon.** Odpowiedź i wpis audytu niosą id kontroli, wynik, hash polityki, tagi OWASP/ATLAS i czasy etapów. Audyt jest łańcuchem hashy i nie zawiera treści promptów.
 - **Polski na równi z angielskim.** PESEL, NIP i IBAN z sumami kontrolnymi; heurystyki injection po normalizacji (homoglify, zero-width, base64, ROT13) w obu językach; numery wyglądające jak PESEL lub karta, ale bez poprawnej sumy, przechodzą.
@@ -89,14 +92,17 @@ Jury bez przygotowania: uruchamia nasz zestaw testów, wpisuje własne prompty d
 
 | Kontrola | Co blokuje | Zagrożenie |
 |---|---|---|
-| `pii` (C04) | PESEL, NIP, IBAN, karta (Luhn), e-mail, telefon na wejściu i wyjściu | OWASP LLM02 |
+| `pii` (C04) | PESEL, NIP, IBAN, karta (Luhn), e-mail, telefon na wejściu i wyjściu (redakcja) | OWASP LLM02 |
 | `secrets` (C05) | klucze AWS/GitHub/Slack/OpenAI, klucze prywatne PEM, JWT, connection stringi | OWASP LLM02, ASI03 |
-| `injection_heuristics` (C06) | frazy injection i jailbreak EN/PL po normalizacji, także w wynikach narzędzi i opisach narzędzi | OWASP LLM01, ASI01 |
-| `prompt_guard` (C07) | parafrazy injection (klasyfikator Prompt Guard 2 86M, lokalnie) | OWASP LLM01, ASI01 |
+| `injection_heuristics` (C06) | frazy injection i jailbreak EN/PL po normalizacji, także w wynikach narzędzi, opisach i schematach narzędzi | OWASP LLM01, ASI01 |
+| `signatures` (C10, C11, C18) | znane ataki z feedu `signatures/feed.yaml` przeładowywanego na żywo: pickle, YAML/LangChain deserializacja, reverse shell, `curl \| sh`, ścieżki do kluczy | OWASP LLM03, LLM05, ASI05 |
+| `access.tool`, `tool.pin` (C03, C09) | narzędzia spoza listy agenta; zmiana definicji przypiętego narzędzia (rug pull) | OWASP LLM06, ASI02 |
+| `egress` (C14), `canary` (C22) | wyciek przez obrazki markdown i linki; wyciek promptu systemowego (kanarek) | OWASP LLM02, LLM05, LLM07 |
+| budżety (C15–C17) | tokeny, koszt, liczba żądań, pętle, rozmiar wejścia | OWASP LLM10 |
 
-W toku (do 4.10): feed sygnatur znanych ataków, kontrole narzędzi, guard LLM dla treści szkodliwych.
+Wyłączone domyślnie (włączenie jedną linią w polityce): `prompt_guard` (C07, parafrazy injection, Prompt Guard 2 86M; wymaga `make models`), `harmful_content` (guard LLM `llama-guard3:1b`, [ADR-0006](docs/adr/0006-guard-llm-tresc-szkodliwa.md)), `egress.tool`.
 
-Built with Llama: Llama Prompt Guard 2 jest udostępniany na licencji Llama 4 Community License.
+Built with Llama: Llama Prompt Guard 2 jest udostępniany na licencji Llama 4 Community License, `llama-guard3:1b` na licencji Llama 3.2 Community License.
 
 ## Red team (garak) i FP/FN
 
@@ -229,10 +235,10 @@ Najważniejsze powody:
 
 ## Do potwierdzenia
 
-- **Zawartość pierwszego draftu (20:00).** Do potwierdzenia u organizatorów. Cel z planu: F0–F2 + opis i diagram.
+- **Zawartość pierwszego draftu.** Freeze 19:00, zgłoszenie 19:45 (Kamil).
 - **Wagi kryteriów.** CRITERIA i RULES różnią się dla testów i wdrażalności (15/15 vs 20/10). Przygotowujemy się na wariant z RULES — 20% za testy.
 - **Platforma zgłoszeń.** RULES: HackTribe.
-- **Stack.** Propozycja: Python (FastAPI + pytest) + Ollama. Niezatwierdzone.
+- **Stack.** Python 3.12, FastAPI, Pydantic v2, Ollama ([ADR-0002](docs/adr/README.md)).
 
 ## Zasady hackathonu, o których pamiętamy
 
@@ -262,6 +268,7 @@ Plan ogólny z etapami F0–F7, zasadami ograniczającymi dług techniczny, arch
 | [`docs/WORKPLAN.md`](docs/WORKPLAN.md), [`docs/tasks/`](docs/tasks/) | Plan pracy zespołu (4 osoby): właścicielstwo plików, harmonogram, specyfikacje zadań |
 | [`AGENTS.md`](AGENTS.md) | Instrukcje dla agentów AI pracujących w repo |
 | `src/control_layer/` | Kod: `core/` (bez frameworków), `adapters/`, `detectors/`, `dashboard/`, `app.py` |
-| `config/` | Polityki: `policy.yaml` (domyślna), `policy.strict.yaml`, `policy.lenient.yaml` |
-| `Dockerfile`, `compose.yaml` | Szablon z `docker init` — zastępuje go Maciej (D2) |
-| `site/` | Pełna dokumentacja jako statyczna strona HTML (lokalnie `make docs`, publikacja: GitHub Pages) |
+| `config/` | Polityki: `policy.yaml` (domyślna), `policy.strict.yaml`, `policy.lenient.yaml`, `policy.compose.yaml` (Docker) |
+| `signatures/` | Feed sygnatur znanych ataków (`feed.yaml`) i reguła do demo W2 (`demo/sig-0005.yaml`) |
+| `Dockerfile`, `compose.yaml` | Obraz proxy (non-root) i stos z Ollamą (Ollama bez portu na hoście, proxy tylko na `127.0.0.1`); opis w [`docs/deploy.md`](docs/deploy.md) |
+| `site/` | Pełna dokumentacja jako statyczna strona HTML (lokalnie `make docs`; GitHub Pages przez ręczny workflow) |
