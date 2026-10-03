@@ -98,6 +98,11 @@ controls:
     sides: [input]
     action: block
     threshold: 0.9             # explicit phrases only; mixed-script words alone pass
+  - id: canary
+    kind: canary
+    sides: [output]
+    action: block
+    threshold: 0.5
   - id: egress.tool
     kind: egress
     enabled: false             # until tests/cases/tools-indirect.yaml (B7)

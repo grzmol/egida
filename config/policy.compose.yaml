@@ -100,6 +100,11 @@ controls:
     sides: [input]
     action: block
     threshold: 0.5
+  - id: canary                 # C22: the system-prompt canary the pipeline injects leaks in the output
+    kind: canary
+    sides: [output]
+    action: block
+    threshold: 0.5
   - id: egress.tool            # C14: tool-call arguments with URLs outside the allowlist (exfiltration)
     kind: egress
     enabled: false             # until tests/cases/tools-indirect.yaml (B7): the runner cannot fake tool_calls yet

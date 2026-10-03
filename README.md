@@ -31,6 +31,8 @@ curl -s http://127.0.0.1:8080/v1/chat/completions -H 'Authorization: Bearer sk-d
 
 **Policy:** `config/policy.yaml` (controls, thresholds, actions, budgets, agents). Edit and save — applied within ~1 s, no restart; an invalid file is rejected (see `GET /api/policy` → `last_error`) and the last valid policy keeps running. Samples: `config/policy.strict.yaml`, `config/policy.lenient.yaml` (`CONTROL_LAYER_POLICY=config/policy.strict.yaml make run`). Demo keys (only their sha256 is stored): `sk-demo-agent`, `sk-ci-agent` (small budget), `sk-tools-agent` (tools `search_docs`, `read_file`, `http_get`), `sk-selftest-agent` (live selftest: `CONTROL_LAYER_SELFTEST_AGENT=selftest-agent make selftest`, own budget so it does not use up demo-agent's). Guard models (B6) are called on `CONTROL_LAYER_GUARD_URL` (default `http://127.0.0.1:11434`, Ollama's native API).
 
+**Known-attack signatures:** `signatures/feed.yaml` (rules with their own attack and benign examples; a rule that fails its examples is rejected). Edit and save — applied within ~1 s; `GET /api/signatures` shows the active version and `last_error`, `GET /api/signatures/cases?agent=sig-probe-agent` turns the rule examples into selftest cases (key `sk-sig-probe-agent`). Demo W2: paste `signatures/demo/sig-0005.yaml` into the feed and bump `feed_version`.
+
 **Reporting:** `http://127.0.0.1:8080/dashboard`, `GET /api/stats`, audit export `GET /api/audit/export?format=csv|jsonl`, audit integrity `make verify-audit`.
 
 **Tests:** `make check` (lint, types, architecture boundaries, unit + case tests offline) · `make selftest` (the same YAML cases against the running instance, JUnit in `var/selftest.xml`).
