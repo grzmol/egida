@@ -56,9 +56,9 @@ def test_decoded_segments_is_capped() -> None:
 
 
 def test_views_include_rot13_and_base64() -> None:
-    v = views(f"vtaber {ATTACK_B64}")
-    assert any(view.startswith("ignore") for view in v)
-    assert normalize(ATTACK) in v
+    v = dict(views(f"vtaber {ATTACK_B64}"))
+    assert v["rot13"].startswith("ignore")
+    assert v["base64"] == normalize(ATTACK)
 
 
 def test_mixed_script_words_counts_latin_cyrillic_only() -> None:

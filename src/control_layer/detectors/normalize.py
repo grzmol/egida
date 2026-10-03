@@ -84,7 +84,8 @@ def mixed_script_words(text: str) -> int:
     return count
 
 
-def views(text: str) -> list[str]:
-    """Normalized text plus normalized decoded variants (base64 segments, ROT13)."""
-    variants = [text, codecs.encode(text, "rot13"), *decoded_segments(text)]
-    return [normalize(v) for v in variants]
+def views(text: str) -> list[tuple[str, str]]:
+    """(kind, normalized text) for the text itself, its ROT13 and each decoded base64 segment."""
+    variants = [("text", text), ("rot13", codecs.encode(text, "rot13"))]
+    variants += [("base64", segment) for segment in decoded_segments(text)]
+    return [(kind, normalize(v)) for kind, v in variants]

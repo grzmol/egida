@@ -34,6 +34,20 @@ PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
             r"\b(dan|jailbroken|unrestricted|unfiltered|uncensored|without (any )?"
             r"(restrictions|filters|rules|limits))\b",
         ),
+        (
+            "no_restrictions",
+            r"\b(pretend|imagine|act as if|assume)\b.{0,30}\b(you have|there are) no "
+            r"(restrictions|rules|limits|filters|guidelines|guardrails)\b",
+        ),
+        (
+            "forget_rules",
+            r"\b(forget|ignore|disregard)\s+((all|the|your|any)\s+)+(rules|instructions|guidelines)"
+            r"\s+(you (were|have been) given|above|so far)\b",
+        ),
+        (
+            "obey_only_me",
+            r"\b(obey|listen to|follow) only (me|my (instructions|orders|commands))\b",
+        ),
         ("do_anything_now", r"\bdo anything now\b"),
         ("mode_switch", r"\b(enable|activate|enter)\w*\s+(developer|dan|god|jailbreak)\s+mode\b"),
         (
@@ -57,15 +71,27 @@ PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
             r"\b(jestes teraz|od teraz jestes|udawaj, ze jestes|udawaj ze jestes)\b.{0,40}"
             r"\b(dan|bez ograniczen|bez cenzury|bez filtrow|nieograniczon\w*)",
         ),
+        (
+            "pl_no_restrictions",
+            r"\b(udawaj|wyobraz sobie|zaloz)\b.{0,30}\bnie (masz|obowiazuja cie|ma) (zadnych )?"
+            r"(ograniczen|zasad|regul|filtrow|wytycznych)",
+        ),
+        (
+            "pl_disobey",
+            rf"\bnie (stosuj sie do|sluchaj|przestrzegaj)\s+(\w+\s+)?{_PL_NOUN}\b",
+        ),
     )
 )
 
 
-def find_injection(text: str) -> list[str]:
-    """Names of injection patterns matched in any view of `text` (deduplicated, ordered)."""
+def find_injection(
+    text: str, patterns: tuple[tuple[str, re.Pattern[str]], ...] = PATTERNS
+) -> list[str]:
+    """Matched pattern names, suffixed with the view they matched in ("x/base64", "x/rot13")."""
     hits: list[str] = []
-    for view in views(text):
-        for name, pattern in PATTERNS:
-            if name not in hits and pattern.search(view):
-                hits.append(name)
+    for kind, view in views(text):
+        for name, pattern in patterns:
+            label = name if kind == "text" else f"{name}/{kind}"
+            if label not in hits and pattern.search(view):
+                hits.append(label)
     return hits
