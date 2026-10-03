@@ -1,0 +1,83 @@
+[project]
+name = "control-layer"
+version = "0.1.0"
+description = "AI Control Layer: policy-driven gateway that inspects, redacts and blocks agentic AI traffic (HackYeah 2026)."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.142.2",
+    "httpx>=0.28.1",
+    "onnxruntime>=1.30.0",
+    "pydantic>=2.13.5",
+    "python-stdnum>=2.2",
+    "pyyaml>=6.0.3",
+    "tokenizers>=0.23.2",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.9,<0.13"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC", "BLE", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src"]
+warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = "control_layer.core.*"
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "semantic: requires a real model (ONNX or Ollama)",
+    "live: requires --target pointing at a running instance",
+]
+
+[tool.importlinter]
+root_package = "control_layer"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "core is framework-free"
+type = "forbidden"
+source_modules = ["control_layer.core"]
+forbidden_modules = [
+    "fastapi",
+    "starlette",
+    "httpx",
+    "uvicorn",
+    "yaml",
+    "onnxruntime",
+    "tokenizers",
+    "control_layer.adapters",
+    "control_layer.detectors",
+    "control_layer.dashboard",
+    "control_layer.app",
+]
+
+[[tool.importlinter.contracts]]
+name = "detectors do not reach adapters, app or HTTP"
+type = "forbidden"
+source_modules = ["control_layer.detectors"]
+forbidden_modules = ["control_layer.adapters", "control_layer.app", "fastapi", "httpx"]
+
+[dependency-groups]
+dev = [
+    "import-linter>=2.15",
+    "mypy>=2.4.0",
+    "pytest>=9.1.1",
+    "ruff>=0.16.10",
+    "types-pyyaml>=6.0.12.20260906",
+]

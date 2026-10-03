@@ -1,1 +1,13 @@
-.idea
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.import_linter_cache/
+.DS_Store
+.env
+
+var/
+models/*
+!models/README.md
