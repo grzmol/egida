@@ -55,6 +55,8 @@ def test_dashboard_page_is_html(client: TestClient) -> None:
     assert response.headers["content-type"].startswith("text/html")
     assert "<table" in response.text
     assert "cdn" not in response.text.lower()  # must work offline
+    assert "innerHTML" not in response.text  # file and policy data go through textContent only
+    assert "setInterval" not in response.text  # a slow poll must not overlap the next one
 
 
 def test_stats_include_metrics_and_selftest(client: TestClient, paths: tuple[Path, Path]) -> None:

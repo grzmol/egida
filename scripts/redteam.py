@@ -61,9 +61,18 @@ def git(*args: str) -> str:
 # --- policy -----------------------------------------------------------------------------
 
 
-def eval_policy(source: bytes) -> dict[str, Any]:
-    """The source policy plus a redteam agent with a budget that never blocks a measurement."""
+def eval_policy(source: bytes, enable: tuple[str, ...] = ()) -> dict[str, Any]:
+    """The source policy plus a redteam agent with a budget that never blocks a measurement.
+
+    `enable` switches on listed controls for a labelled variant run; nothing else changes.
+    """
     policy: dict[str, Any] = yaml.safe_load(source)
+    controls = {c["id"]: c for c in policy["controls"]}
+    unknown = set(enable) - set(controls)
+    if unknown:
+        raise ValueError(f"unknown control(s): {sorted(unknown)}")
+    for control_id in enable:
+        controls[control_id]["enabled"] = True
     if AGENT in policy.get("agents", {}) or "redteam" in policy.get("budgets", {}):
         raise ValueError(f"source policy already defines {AGENT!r} or budget 'redteam'")
     demo = policy["agents"]["demo-agent"]
@@ -80,10 +89,10 @@ def eval_policy(source: bytes) -> dict[str, Any]:
     return policy
 
 
-def cmd_policy(_: argparse.Namespace) -> int:
+def cmd_policy(args: argparse.Namespace) -> int:
     source = (ROOT / "config" / "policy.yaml").read_bytes()
     try:
-        policy = eval_policy(source)
+        policy = eval_policy(source, tuple(args.enable))
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
@@ -96,6 +105,7 @@ def cmd_policy(_: argparse.Namespace) -> int:
         "eval_sha256": hashlib.sha256(rendered).hexdigest(),
         "commit": git("rev-parse", "--short", "HEAD"),
         "dirty": bool(git("status", "--porcelain")),
+        "enabled_overrides": sorted(args.enable),
     }
     (OUT / "policy.eval.meta.json").write_text(json.dumps(meta, indent=2))
     print(f"wrote {OUT / 'policy.eval.yaml'} ({meta['eval_sha256'][:12]})")
@@ -306,7 +316,9 @@ def cmd_summary(_: argparse.Namespace) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("policy").set_defaults(run=cmd_policy)
+    policy = sub.add_parser("policy")
+    policy.add_argument("--enable", action="append", default=[], metavar="CONTROL_ID")
+    policy.set_defaults(run=cmd_policy)
     garak = sub.add_parser("garak")
     garak.add_argument("--target", choices=sorted(TARGETS), required=True)
     garak.add_argument("--spec", default=SPEC)

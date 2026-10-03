@@ -142,6 +142,7 @@ def test_iter_texts_input_targets() -> None:
         "messages[2].tool_calls[0].arguments",
         "messages[3].content",
         "tools[0].description",
+        "tools[0].parameters_json",  # property descriptions reach the model: scanned too
     ]
 
 

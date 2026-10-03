@@ -34,6 +34,7 @@ class ScopedText:
 _MESSAGE_CONTENT = re.compile(r"messages\[(\d+)\]\.content")
 _MESSAGE_ARGS = re.compile(r"messages\[(\d+)\]\.tool_calls\[(\d+)\]\.arguments")
 _TOOL_DESCRIPTION = re.compile(r"tools\[(\d+)\]\.description")
+_TOOL_PARAMETERS = re.compile(r"tools\[(\d+)\]\.parameters_json")
 _OUTPUT_CONTENT = "output.content"
 _OUTPUT_ARGS = re.compile(r"output\.tool_calls\[(\d+)\]\.arguments")
 
@@ -42,7 +43,8 @@ def iter_texts(interaction: Interaction, side: Side) -> Iterator[tuple[str, str]
     """Yield (target, text) pairs for one side of the interaction.
 
     INPUT: every message content (all roles, incl. system and tool), every tool call argument
-    in the history, every tool description. OUTPUT: model output content and its tool calls.
+    in the history, every tool description and parameter schema (property descriptions reach
+    the model too). OUTPUT: model output content and its tool calls.
     """
     if side is Side.INPUT:
         for i, message in enumerate(interaction.messages):
@@ -51,6 +53,7 @@ def iter_texts(interaction: Interaction, side: Side) -> Iterator[tuple[str, str]
                 yield f"messages[{i}].tool_calls[{j}].arguments", call.arguments
         for k, tool in enumerate(interaction.tools):
             yield f"tools[{k}].description", tool.description
+            yield f"tools[{k}].parameters_json", tool.parameters_json
         return
     output = interaction.output
     if output is None:
@@ -61,15 +64,11 @@ def iter_texts(interaction: Interaction, side: Side) -> Iterator[tuple[str, str]
 
 
 def iter_scoped_texts(interaction: Interaction, side: Side) -> Iterator[ScopedText]:
-    """Everything iter_texts yields, classified by feed scope, plus two read-only texts on INPUT:
-    tool parameter schemas and the model reference. `artifact` has no source in proxy traffic."""
+    """Everything iter_texts yields, classified by feed scope, plus the model reference
+    (read-only). `artifact` has no source in proxy traffic."""
     for target, text in iter_texts(interaction, side):
         yield ScopedText(_scope_of(interaction, target), target, text, redactable=True)
     if side is Side.INPUT:
-        for k, tool in enumerate(interaction.tools):
-            yield ScopedText(
-                "tool_definition", f"tools[{k}].parameters_json", tool.parameters_json, False
-            )
         yield ScopedText("model_ref", "model", interaction.model, redactable=False)
 
 
@@ -78,7 +77,7 @@ def _scope_of(interaction: Interaction, target: str) -> Scope:
         return "tool_result" if interaction.messages[int(m[1])].role == "tool" else "input"
     if _MESSAGE_ARGS.fullmatch(target) or _OUTPUT_ARGS.fullmatch(target):
         return "tool_call.args"
-    if _TOOL_DESCRIPTION.fullmatch(target):
+    if _TOOL_DESCRIPTION.fullmatch(target) or _TOOL_PARAMETERS.fullmatch(target):
         return "tool_definition"
     if target == _OUTPUT_CONTENT:
         return "output"
@@ -129,6 +128,8 @@ def _get_text(interaction: Interaction, target: str) -> str:
         return _call(_message(interaction, int(m[1])), int(m[2]), target).arguments
     if m := _TOOL_DESCRIPTION.fullmatch(target):
         return _tool(interaction, int(m[1])).description
+    if m := _TOOL_PARAMETERS.fullmatch(target):
+        return _tool(interaction, int(m[1])).parameters_json
     if target == _OUTPUT_CONTENT:
         return _output(interaction).content
     if m := _OUTPUT_ARGS.fullmatch(target):
@@ -149,6 +150,11 @@ def _set_text(interaction: Interaction, target: str, text: str) -> Interaction:
         k = int(m[1])
         tools = list(interaction.tools)
         tools[k] = dataclasses.replace(_tool(interaction, k), description=text)
+        return dataclasses.replace(interaction, tools=tuple(tools))
+    if m := _TOOL_PARAMETERS.fullmatch(target):  # masks sit inside JSON strings (no quotes)
+        k = int(m[1])
+        tools = list(interaction.tools)
+        tools[k] = dataclasses.replace(_tool(interaction, k), parameters_json=text)
         return dataclasses.replace(interaction, tools=tuple(tools))
     if target == _OUTPUT_CONTENT:
         output = dataclasses.replace(_output(interaction), content=text)
