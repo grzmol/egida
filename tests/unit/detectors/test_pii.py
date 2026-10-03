@@ -1,6 +1,9 @@
 import pytest
+from pydantic import ValidationError
 
-from control_layer.detectors.pii import find_pii
+from control_layer.core.models import Category, Interaction, Message, Side, ToolCall
+from control_layer.core.ports import ScanContext
+from control_layer.detectors.pii import PiiDetector, PiiParams, find_pii
 
 
 @pytest.mark.parametrize(
@@ -40,3 +43,53 @@ def test_pii_look_alikes_pass(text: str) -> None:
 def test_entities_filter() -> None:
     text = "jan@example.com, PESEL 44051401359"
     assert [h[0] for h in find_pii(text, frozenset({"pesel"}))] == ["pesel"]
+
+
+def test_params_reject_bad_regex_and_unknown_entity() -> None:
+    with pytest.raises(ValidationError):
+        PiiParams(extra_patterns={"badge": "("})
+    with pytest.raises(ValidationError):
+        PiiParams.model_validate({"entities": ["pesel", "ssn"]})
+
+
+@pytest.mark.anyio
+async def test_detector_spans_cover_every_input_text() -> None:
+    interaction = Interaction(
+        request_id="req_1",
+        agent_id="demo-agent",
+        model="llama3.2:3b",
+        messages=(
+            Message(role="system", content="Support bot."),
+            Message(role="user", content="Mój PESEL to 44051401359."),
+            Message(
+                role="assistant",
+                content="",
+                tool_calls=(ToolCall(id="c1", name="lookup", arguments='{"email": "a@b.pl"}'),),
+            ),
+        ),
+    )
+    ctx = ScanContext(
+        interaction, Side.INPUT, "pii", PiiParams(extra_patterns={"badge": r"B-\d{4}"})
+    )
+    [finding] = await PiiDetector().scan(ctx)
+    assert finding.category == Category.PII
+    assert finding.score == 1.0
+    assert [(s.target, s.label, s.start, s.end) for s in finding.spans] == [
+        ("messages[1].content", "pesel", 13, 24),
+        ("messages[2].tool_calls[0].arguments", "email", 11, 17),
+    ]
+    assert "44051401359" not in finding.evidence
+    assert "pesel 44*******59@messages[1].content" in finding.evidence
+
+
+@pytest.mark.anyio
+async def test_detector_finds_nothing_in_clean_output() -> None:
+    interaction = Interaction(
+        request_id="req_2",
+        agent_id="demo-agent",
+        model="llama3.2:3b",
+        messages=(Message(role="user", content="PESEL 44051401359"),),
+        output=Message(role="assistant", content="Nie mogę pomóc z danymi osobowymi."),
+    )
+    ctx = ScanContext(interaction, Side.OUTPUT, "pii", PiiParams())
+    assert await PiiDetector().scan(ctx) == []

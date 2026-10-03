@@ -1,5 +1,7 @@
 import base64
+import sys
 import time
+import unicodedata
 
 import pytest
 
@@ -71,3 +73,10 @@ def test_one_megabyte_is_fast() -> None:
     started = time.perf_counter()
     normalize(text)
     assert time.perf_counter() - started < 0.2
+
+
+def test_every_format_character_is_removed() -> None:
+    format_chars = "".join(
+        chr(c) for c in range(sys.maxunicode + 1) if unicodedata.category(chr(c)) == "Cf"
+    )
+    assert normalize(f"a{format_chars}b") == "ab"

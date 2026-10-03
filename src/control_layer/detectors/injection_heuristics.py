@@ -6,8 +6,16 @@ false-positive traps from docs/research/11-brainstorm-red-team.md §2 must pass.
 """
 
 import re
+from typing import ClassVar
 
-from control_layer.detectors.normalize import views
+import anyio
+from pydantic import BaseModel, ConfigDict, field_validator
+
+from control_layer.core.models import Category, Finding
+from control_layer.core.ports import ScanContext
+from control_layer.core.texts import iter_texts
+from control_layer.detectors.common import EVIDENCE_MAX
+from control_layer.detectors.normalize import mixed_script_words, views
 
 _EN_ADJ = r"(previous|prior|above|earlier|preceding|system|initial|original|your|all)"
 _EN_NOUN = r"(instructions?|prompts?|rules|directives|guidelines|guardrails)"
@@ -95,3 +103,72 @@ def find_injection(
             if label not in hits and pattern.search(view):
                 hits.append(label)
     return hits
+
+
+TAGS = ("owasp.llm01-2025", "asi.asi01", "atlas.AML.T0051")
+MIXED_SCRIPT_SCORE = 0.6
+_NAMES = frozenset(name for name, _ in PATTERNS)
+
+
+class InjectionParams(BaseModel):
+    """`extra_patterns` run on normalized text: lowercase, no diacritics (`ł` -> `l`)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    extra_patterns: tuple[str, ...] = ()
+    disabled_patterns: tuple[str, ...] = ()
+
+    @field_validator("extra_patterns")
+    @classmethod
+    def _compiles(cls, patterns: tuple[str, ...]) -> tuple[str, ...]:
+        for rx in patterns:
+            try:
+                re.compile(rx)
+            except re.error as e:
+                raise ValueError(f"extra_patterns {rx!r}: {e}") from e
+        return patterns
+
+    @field_validator("disabled_patterns")
+    @classmethod
+    def _known(cls, names: tuple[str, ...]) -> tuple[str, ...]:
+        unknown = set(names) - _NAMES
+        if unknown:
+            raise ValueError(f"unknown patterns: {sorted(unknown)}")
+        return names
+
+
+def _scan(control_id: str, texts: list[tuple[str, str]], params: InjectionParams) -> list[Finding]:
+    patterns = tuple(p for p in PATTERNS if p[0] not in params.disabled_patterns)
+    patterns += tuple((f"extra_{i}", re.compile(rx)) for i, rx in enumerate(params.extra_patterns))
+    score = 0.0
+    evidence: list[str] = []
+    for target, text in texts:
+        labels = find_injection(text, patterns)
+        if labels:
+            score = 1.0
+            evidence.append(f"{','.join(labels)}@{target}")
+        elif mixed_script_words(text) >= 2:
+            score = max(score, MIXED_SCRIPT_SCORE)
+            evidence.append(f"mixed_script@{target}")
+    if not evidence:
+        return []
+    return [
+        Finding(
+            control_id=control_id,
+            category=Category.INJECTION,
+            score=score,
+            evidence="; ".join(evidence)[:EVIDENCE_MAX],
+            tags=TAGS,
+        )
+    ]
+
+
+class InjectionHeuristics:
+    kind: ClassVar[str] = "injection_heuristics"
+    Params: ClassVar[type[BaseModel]] = InjectionParams
+
+    async def scan(self, ctx: ScanContext) -> list[Finding]:
+        if not isinstance(ctx.params, InjectionParams):
+            raise TypeError(f"expected InjectionParams, got {type(ctx.params).__name__}")
+        texts = list(iter_texts(ctx.interaction, ctx.side))
+        return await anyio.to_thread.run_sync(_scan, ctx.control_id, texts, ctx.params)

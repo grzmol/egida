@@ -24,6 +24,14 @@ _CONFUSABLES = str.maketrans(
     }
 )  # fmt: skip
 
+# Unicode category Cf (format: zero-width, bidi, tag characters); test pins it to unicodedata.
+_FORMAT_CHARS = re.compile(
+    "[\u00ad\u0600-\u0605\u061c\u06dd\u070f\u0890\u0891\u08e2\u180e\u200b-\u200f"
+    "\u202a-\u202e\u2060-\u2064\u2066-\u206f\ufeff\ufff9-\ufffb\U000110bd\U000110cd"
+    "\U00013430-\U0001343f\U0001bca0-\U0001bca3\U0001d173-\U0001d17a\U000e0001"
+    "\U000e0020-\U000e007f]"
+)
+_COMBINING = re.compile("[\u0300-\u036f\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f]")
 _B64_TOKEN = re.compile(r"[A-Za-z0-9+/_-]+={0,2}")
 _WORD = re.compile(r"\w+")
 _WHITESPACE = re.compile(r"\s+")
@@ -39,10 +47,8 @@ def normalize(text: str) -> str:
     (a run containing a newline becomes one newline, so line starts survive).
     """
     text = unicodedata.normalize("NFKC", text)
-    text = "".join(c for c in text if unicodedata.category(c) != "Cf")
-    text = text.casefold().translate(_CONFUSABLES)
-    text = unicodedata.normalize("NFKD", text)
-    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
+    text = _FORMAT_CHARS.sub("", text).casefold().translate(_CONFUSABLES)
+    text = _COMBINING.sub("", unicodedata.normalize("NFKD", text))
     return _WHITESPACE.sub(lambda m: "\n" if "\n" in m.group() else " ", text).strip()
 
 

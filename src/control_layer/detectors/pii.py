@@ -7,7 +7,15 @@ numbers pass.
 
 import re
 from collections.abc import Callable
+from typing import ClassVar, Literal
 
+import anyio
+from pydantic import BaseModel, ConfigDict, field_validator
+
+from control_layer.core.models import Category, Finding
+from control_layer.core.ports import ScanContext
+from control_layer.core.texts import iter_texts
+from control_layer.detectors.common import Hit, mask, span_finding
 from control_layer.detectors.validators import (
     is_card,
     is_iban,
@@ -16,8 +24,10 @@ from control_layer.detectors.validators import (
     strip_separators,
 )
 
+Pattern = tuple[str, re.Pattern[str], Callable[[str], bool] | None]
+
 # Order matters: earlier patterns win on overlapping spans (an IBAN is not also a card).
-PATTERNS: tuple[tuple[str, re.Pattern[str], Callable[[str], bool] | None], ...] = (
+PATTERNS: tuple[Pattern, ...] = (
     (
         "iban",
         re.compile(r"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,3})?\b"),
@@ -53,12 +63,16 @@ PATTERNS: tuple[tuple[str, re.Pattern[str], Callable[[str], bool] | None], ...] 
     ("email", re.compile(r"\b[\w.%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b"), None),
 )
 ENTITIES = frozenset(label for label, _, _ in PATTERNS)
+TAGS = ("owasp.llm02-2025", "atlas.AML.T0057")
+Entity = Literal["email", "phone", "pesel", "nip", "iban", "card"]
 
 
-def find_pii(text: str, entities: frozenset[str] = ENTITIES) -> list[tuple[str, int, int]]:
+def find_pii(
+    text: str, entities: frozenset[str] = ENTITIES, extra: tuple[Pattern, ...] = ()
+) -> list[tuple[str, int, int]]:
     """(label, start, end) for each PII item of the given entity types, sorted by position."""
     hits: list[tuple[str, int, int]] = []
-    for label, pattern, is_valid in PATTERNS:
+    for label, pattern, is_valid in (*PATTERNS, *extra):
         if label not in entities:
             continue
         for m in pattern.finditer(text):
@@ -66,3 +80,43 @@ def find_pii(text: str, entities: frozenset[str] = ENTITIES) -> list[tuple[str, 
             if not overlaps and (is_valid is None or is_valid(m.group())):
                 hits.append((label, m.start(), m.end()))
     return sorted(hits, key=lambda h: h[1])
+
+
+class PiiParams(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    entities: tuple[Entity, ...] = ("email", "phone", "pesel", "nip", "iban", "card")
+    extra_patterns: dict[str, str] = {}  # label -> regex on the original text
+
+    @field_validator("extra_patterns")
+    @classmethod
+    def _compiles(cls, patterns: dict[str, str]) -> dict[str, str]:
+        for label, rx in patterns.items():
+            try:
+                re.compile(rx)
+            except re.error as e:
+                raise ValueError(f"extra_patterns.{label}: {e}") from e
+        return patterns
+
+
+def _scan(control_id: str, texts: list[tuple[str, str]], params: PiiParams) -> list[Finding]:
+    extra = tuple((label, re.compile(rx), None) for label, rx in params.extra_patterns.items())
+    entities = frozenset(params.entities) | frozenset(params.extra_patterns)
+    hits: list[Hit] = []
+    evidence: list[str] = []
+    for target, text in texts:
+        for label, start, end in find_pii(text, entities, extra):
+            hits.append((target, label, 1.0, start, end))
+            evidence.append(f"{label} {mask(text[start:end])}@{target}")
+    return span_finding(control_id, Category.PII, hits, TAGS, evidence)
+
+
+class PiiDetector:
+    kind: ClassVar[str] = "pii"
+    Params: ClassVar[type[BaseModel]] = PiiParams
+
+    async def scan(self, ctx: ScanContext) -> list[Finding]:
+        if not isinstance(ctx.params, PiiParams):
+            raise TypeError(f"expected PiiParams, got {type(ctx.params).__name__}")
+        texts = list(iter_texts(ctx.interaction, ctx.side))
+        return await anyio.to_thread.run_sync(_scan, ctx.control_id, texts, ctx.params)
