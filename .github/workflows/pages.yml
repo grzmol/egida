@@ -1,12 +1,10 @@
 name: Docs (GitHub Pages)
 
-# Publishes site/ (static, no build step) when it changes on main.
-# One-time setup: Settings → Pages → Source: GitHub Actions.
+# Publishes site/ (static, no build step). Manual only: Pages is not enabled while the repo is
+# private (a push trigger failed main). To publish: Settings → Pages → Source: GitHub Actions,
+# then Actions → "Docs (GitHub Pages)" → Run workflow. The published site is public.
 
 on:
-  push:
-    branches: [main]
-    paths: ["site/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
