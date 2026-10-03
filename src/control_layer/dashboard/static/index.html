@@ -301,8 +301,8 @@ async function refresh() {
 }
 
 $("filter").addEventListener("change", refresh);
-refresh();
-setInterval(refresh, 1000);
+// Next poll starts 1 s after the previous one ends, so slow responses never overlap.
+(async function poll() { await refresh(); setTimeout(poll, 1000); })();
 </script>
 </body>
 </html>
