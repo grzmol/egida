@@ -6,7 +6,7 @@ Schema: tests/cases/README.md. Results per control go to var/selftest.json (dash
 import copy
 import json
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 
 from control_layer.adapters.fake_model import FakeModelClient
 from control_layer.app import Settings, create_app
-from control_layer.core.models import Side
+from control_layer.core.models import Interaction, Side
 from control_layer.core.texts import iter_texts
 from control_layer.detectors import REGISTRY
 
@@ -147,11 +147,23 @@ def check(case: Case, response: httpx.Response, fake: FakeModelClient | None) ->
             assert sent.max_tokens == expect["upstream_max_tokens"]
 
 
+def fake_reply(case: Case) -> str | Callable[[Interaction], str]:
+    """`model_reply`: a string, or {echo: system}: the fake model leaks its system prompt."""
+    reply = case.get("model_reply")
+    if reply is None:
+        return "OK"
+    if isinstance(reply, str):
+        return reply
+    if reply == {"echo": "system"}:
+        return lambda i: "\n".join(m.content for m in i.messages if m.role == "system")
+    raise ValueError(f"{case['id']}: unsupported model_reply {reply!r}")
+
+
 def run_offline(case: Case, tmp_path: Path) -> None:
     policy = yaml.safe_load(POLICY_PATH.read_text(encoding="utf-8"))
     policy_path = tmp_path / "policy.yaml"
     policy_path.write_text(yaml.safe_dump(merge(policy, case.get("policy_patch") or {})))
-    fake = FakeModelClient(reply=case.get("model_reply") or "OK")
+    fake = FakeModelClient(reply=fake_reply(case))
     settings = Settings(policy_path=policy_path, audit_path=tmp_path / "audit.jsonl")
     with TestClient(create_app(settings, model_client=fake)) as client:
         for _ in range(case.get("repeat", 1)):

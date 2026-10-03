@@ -52,8 +52,7 @@ class MetricsMemory:
                     self._budgets[event.agent_id] = dataclasses.asdict(event.budget)
                 self._cost[event.agent_id] += event.cost or 0.0
         elif event.type == "control_error":
-            # ponytail: control id read from blocked_by; agree on the field with Dev A (A1).
-            self._controls[event.blocked_by or "unknown"]["errors"] += 1
+            self._controls[event.control_id or event.blocked_by or "unknown"]["errors"] += 1
         elif event.type == "upstream_error":
             self._upstream_errors += 1
         elif event.type in ("policy_reloaded", "policy_rejected"):
