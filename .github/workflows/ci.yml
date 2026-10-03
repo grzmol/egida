@@ -1,0 +1,42 @@
+name: CI
+
+# Quality gate for every pull request (and for main itself): ruff, mypy, import-linter, pytest
+# via `make check`, on the locked dependency set. Semantic tests needing local models skip
+# themselves when the models are absent.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: make check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.12.21"
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install locked dependencies
+        # --locked fails if uv.lock is out of date with pyproject.toml (no silent drift)
+        run: uv sync --locked
+
+      - name: make check (ruff, mypy, import-linter, pytest)
+        run: make check
