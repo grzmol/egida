@@ -8,7 +8,9 @@ from typing import Any
 
 import yaml
 
+from control_layer.app import _build_detectors
 from control_layer.core.policy import build_policy
+from control_layer.core.ports import DetectorDeps
 
 ROOT = Path(__file__).resolve().parents[3]
 NATIVE = ROOT / "config" / "policy.yaml"
@@ -32,7 +34,9 @@ def _without_deploy_fields(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 def test_compose_policy_loads() -> None:
-    build_policy(_load(COMPOSE), {})
+    # Same param models as the running app, so control params are validated too.
+    detectors = _build_detectors(DetectorDeps())
+    build_policy(_load(COMPOSE), {kind: d.Params for kind, d in detectors.items()})
 
 
 def test_compose_policy_matches_native_except_deploy_fields() -> None:
