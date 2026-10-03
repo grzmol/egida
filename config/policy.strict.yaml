@@ -35,6 +35,16 @@ agents:
     allowed_models: [llama3.2:3b]
     allowed_tools: []
     budget: small
+  selftest-agent:
+    key_sha256: bb0ea463317a34f119abfa77b4c4026653bf4b835b80a8619852dab53909767d   # sha256("sk-selftest-agent")
+    allowed_models: [llama3.2:3b]
+    allowed_tools: []
+    budget: selftest
+  tools-agent:
+    key_sha256: 354fda1a4001f25735fa24a64e3f12054efbfdf4a94463758357639159a22b9e   # sha256("sk-tools-agent")
+    allowed_models: [llama3.2:3b]
+    allowed_tools: [search_docs, read_file, http_get]
+    budget: default
 
 budgets:
   default:
@@ -50,6 +60,13 @@ budgets:
     max_requests: 10
     window_s: 3600
     max_identical: 2
+    identical_window_s: 30
+  selftest:
+    max_tokens: 2000000
+    max_cost: 50.0
+    max_requests: 2000
+    window_s: 3600
+    max_identical: 3
     identical_window_s: 30
 
 controls:
@@ -68,6 +85,19 @@ controls:
     sides: [input]
     action: block
     threshold: 0.5             # mixed-script words (score 0.6) count too
+  - id: egress.tool
+    kind: egress
+    enabled: false             # until tests/cases/tools-indirect.yaml (B7)
+    sides: [output]
+    action: block
+    threshold: 0.5
+    params: {allowed_domains: [bank.example, docs.python.org], scan: [tool_arguments]}
+  - id: egress
+    kind: egress
+    sides: [output]
+    action: redact
+    threshold: 0.5
+    params: {allowed_domains: [bank.example, docs.python.org], scan: [content], links: all}   # strict: every outside link, not only links with data
   - id: prompt_guard
     kind: prompt_guard
     sides: [input]

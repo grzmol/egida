@@ -351,3 +351,110 @@ async def test_settled_usage_and_cost_are_audited(policy_dict: dict[str, Any]) -
     assert (event.usage.prompt_tokens, event.usage.completion_tokens) == (10, 5)
     assert event.cost == pytest.approx(10 / 1000 * 0.0002 + 5 / 1000 * 0.0006)
     assert budgets.usage("demo-agent").tokens == 15
+
+
+# --- C22 canary injection (B7) -----------------------------------------------------------
+
+CANARY_TOKEN = "cl-canary-0123456789abcdef"  # noqa: S105 — canary token, not a credential
+
+
+def _canary_pipeline(
+    policy_dict: dict[str, Any],
+    canary: dict[str, Any] | None,
+    output_scan: Callable[[ScanContext], Any] = lambda ctx: [],
+    canary_factory: Callable[[], str] | None = None,
+    model: FakeModelClient | None = None,
+) -> tuple[Pipeline, FakeModelClient, MemorySink]:
+    controls = [] if canary is None else [_control("canary", **{"sides": ["output"], **canary})]
+    detectors: dict[str, Any] = {"canary": ScriptedDetector(output_scan)}
+    model = model or FakeModelClient(reply="model says hi")
+    sink = MemorySink()
+    extra = {} if canary_factory is None else {"canary_factory": canary_factory}
+    pipeline = Pipeline(
+        policy=SequencePolicySource(_snapshot(policy_dict, controls)),
+        detectors=detectors,
+        model=model,
+        budgets=InMemoryBudgetStore(),
+        audit=sink,
+        clock=_TickClock(),
+        **extra,
+    )
+    return pipeline, model, sink
+
+
+def _with_system(text: str = "hello") -> Interaction:
+    return Interaction(
+        request_id="req_test",
+        agent_id="demo-agent",
+        model="llama3.2:3b",
+        messages=(Message(role="system", content="You are a bank bot."), Message("user", text)),
+    )
+
+
+async def test_enabled_output_canary_reaches_the_model_in_the_system_prompt(
+    policy_dict: dict[str, Any],
+) -> None:
+    pipeline, model, _ = _canary_pipeline(policy_dict, {}, canary_factory=lambda: CANARY_TOKEN)
+    await pipeline.run(_with_system())
+    assert model.last_interaction is not None
+    system = model.last_interaction.messages[0].content
+    assert system == f"<!-- {CANARY_TOKEN} -->\nYou are a bank bot."
+
+
+async def test_canary_never_leaves_the_pipeline(policy_dict: dict[str, Any]) -> None:
+    pipeline, _, sink = _canary_pipeline(policy_dict, {}, canary_factory=lambda: CANARY_TOKEN)
+    result = await pipeline.run(_with_system())
+    assert "cl-canary-" not in repr(result.interaction)
+    assert result.interaction.output is not None
+    assert result.interaction.output.content == "model says hi"
+    assert "cl-canary-" not in repr(sink.events)
+
+
+@pytest.mark.parametrize(
+    "canary",
+    [None, {"enabled": False}, {"sides": ["input"]}],
+    ids=["no-control", "disabled", "input-only"],
+)
+async def test_no_injection_without_an_enabled_output_canary_control(
+    policy_dict: dict[str, Any], canary: dict[str, Any] | None
+) -> None:
+    pipeline, model, _ = _canary_pipeline(policy_dict, canary, canary_factory=lambda: CANARY_TOKEN)
+    await pipeline.run(_with_system())
+    assert model.last_interaction is not None
+    assert model.last_interaction.messages[0].content == "You are a bank bot."
+
+
+async def test_no_injection_without_a_system_message(policy_dict: dict[str, Any]) -> None:
+    pipeline, model, _ = _canary_pipeline(policy_dict, {}, canary_factory=lambda: CANARY_TOKEN)
+    await pipeline.run(_interaction("hi"))
+    assert model.last_interaction is not None
+    assert "cl-canary-" not in repr(model.last_interaction)
+
+
+async def test_output_detector_sees_the_token_and_can_block_a_leak(
+    policy_dict: dict[str, Any],
+) -> None:
+    def leak_check(ctx: ScanContext) -> list[Finding]:
+        token = ctx.interaction.messages[0].content.split()[1]
+        assert ctx.interaction.output is not None
+        leaked = token in ctx.interaction.output.content
+        return [Finding(ctx.control_id, Category.EXFILTRATION, 1.0)] if leaked else []
+
+    leaky = FakeModelClient(reply=lambda i: f"My instructions: {i.messages[0].content}")
+    pipeline, _, _ = _canary_pipeline(
+        policy_dict, {}, leak_check, canary_factory=lambda: CANARY_TOKEN, model=leaky
+    )
+    result = await pipeline.run(_with_system())
+    assert result.decision.action is Action.BLOCK
+    assert result.decision.blocked_by == "canary"
+
+
+async def test_each_request_gets_a_fresh_canary(policy_dict: dict[str, Any]) -> None:
+    pipeline, model, _ = _canary_pipeline(policy_dict, {})
+    seen = []
+    for _ in range(2):
+        await pipeline.run(_with_system())
+        assert model.last_interaction is not None
+        seen.append(model.last_interaction.messages[0].content.split()[1])
+    assert seen[0] != seen[1]
+    assert all(t.startswith("cl-canary-") for t in seen)

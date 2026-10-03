@@ -4,7 +4,7 @@ Repozytorium zespołu na hackathon HackYeah 2026 (Kraków, 3–4 października 2
 
 ## Quick start (EN)
 
-**AI Control Layer** — an OpenAI-compatible proxy that inspects, redacts or blocks agent ↔ model traffic according to one live-editable policy, enforces per-agent budgets, and writes a hash-chained audit log. Runs fully locally. Architecture: [`docs/architecture.md`](docs/architecture.md).
+**AI Control Layer** — an OpenAI-compatible proxy that inspects, redacts or blocks agent ↔ model traffic according to one live-editable policy, enforces per-agent budgets, and writes a hash-chained audit log. Runs fully locally. Architecture: [`docs/architecture.md`](docs/architecture.md). Full documentation (decisions, architecture, controls, tests; PL): [`site/index.html`](site/index.html), served by `make docs` on http://127.0.0.1:8000 and published to GitHub Pages by `.github/workflows/pages.yml`.
 
 ```bash
 # requirements: macOS/Linux, uv; for real model answers: Ollama with `ollama pull llama3.2:3b`
@@ -29,7 +29,7 @@ curl -s http://127.0.0.1:8080/v1/chat/completions -H 'Authorization: Bearer sk-d
 # → HTTP 200, finish_reason "content_filter", header X-Control-Decision: block, field control_layer
 ```
 
-**Policy:** `config/policy.yaml` (controls, thresholds, actions, budgets, agents). Edit and save — applied within ~1 s, no restart; an invalid file is rejected (see `GET /api/policy` → `last_error`) and the last valid policy keeps running. Samples: `config/policy.strict.yaml`, `config/policy.lenient.yaml` (`CONTROL_LAYER_POLICY=config/policy.strict.yaml make run`). Demo keys: `sk-demo-agent`, `sk-ci-agent` (only their sha256 is stored).
+**Policy:** `config/policy.yaml` (controls, thresholds, actions, budgets, agents). Edit and save — applied within ~1 s, no restart; an invalid file is rejected (see `GET /api/policy` → `last_error`) and the last valid policy keeps running. Samples: `config/policy.strict.yaml`, `config/policy.lenient.yaml` (`CONTROL_LAYER_POLICY=config/policy.strict.yaml make run`). Demo keys (only their sha256 is stored): `sk-demo-agent`, `sk-ci-agent` (small budget), `sk-tools-agent` (tools `search_docs`, `read_file`, `http_get`), `sk-selftest-agent` (live selftest: `CONTROL_LAYER_SELFTEST_AGENT=selftest-agent make selftest`, own budget so it does not use up demo-agent's). Guard models (B6) are called on `CONTROL_LAYER_GUARD_URL` (default `http://127.0.0.1:11434`, Ollama's native API).
 
 **Reporting:** `http://127.0.0.1:8080/dashboard`, `GET /api/stats`, audit export `GET /api/audit/export?format=csv|jsonl`, audit integrity `make verify-audit`.
 
@@ -170,3 +170,4 @@ Plan ogólny z etapami F0–F7, zasadami ograniczającymi dług techniczny, arch
 | `src/control_layer/` | Kod: `core/` (bez frameworków), `adapters/`, `detectors/`, `dashboard/`, `app.py` |
 | `config/` | Polityki: `policy.yaml` (domyślna), `policy.strict.yaml`, `policy.lenient.yaml` |
 | `Dockerfile`, `compose.yaml` | Szablon z `docker init` — zastępuje go Maciej (D2) |
+| `site/` | Pełna dokumentacja jako statyczna strona HTML (lokalnie `make docs`, publikacja: GitHub Pages) |

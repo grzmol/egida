@@ -1,6 +1,6 @@
 """The control pipeline (ADR-0001, ADR-0004).
 
-Fixed stage order: limits → access → budget → input controls → model → output controls →
+Fixed stage order: limits → access → budget → input controls → canary → model → output controls →
 budget settle → aggregate → audit. One policy snapshot per request. The strictest action wins;
 REDACT without spans becomes BLOCK; a failing control applies its `on_error` (fail-closed default).
 """
@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
-from collections.abc import Awaitable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 
 from control_layer.core.audit import AuditEvent, AuditEventType, FindingSummary
 from control_layer.core.budget import estimate_tokens, fingerprint, input_chars, usage_cost
+from control_layer.core.canary import CANARY_KIND, inject_canary, new_canary
 from control_layer.core.errors import UpstreamError
 from control_layer.core.models import (
     Action,
@@ -81,6 +82,7 @@ class Pipeline:
         budgets: BudgetStore,
         audit: AuditSink,
         clock: Clock,
+        canary_factory: Callable[[], str] = new_canary,
     ) -> None:
         self._policy = policy
         self._detectors = detectors
@@ -88,6 +90,7 @@ class Pipeline:
         self._budgets = budgets
         self._audit = audit
         self._clock = clock
+        self._canary_factory = canary_factory
 
     async def run(self, interaction: Interaction) -> PipelineResult:
         snapshot = self._policy.current()
@@ -113,9 +116,16 @@ class Pipeline:
             if run.blocked_by is None:
                 model_spec = policy.models[interaction.model]
                 upstream = policy.upstreams[model_spec.upstream]
+                # C22: the model and output controls see the canary; the client, the audit and
+                # PipelineResult only ever see `interaction`, which never had it
+                to_model = (
+                    inject_canary(interaction, self._canary_factory())
+                    if _canary_enabled(policy)
+                    else interaction
+                )
                 t0 = self._clock.monotonic()
                 try:
-                    result = await self._model.complete(interaction, upstream)
+                    result = await self._model.complete(to_model, upstream)
                 except UpstreamError as exc:
                     await self._audit.emit(
                         self._event(snapshot, interaction, "upstream_error", detail=str(exc))
@@ -126,8 +136,10 @@ class Pipeline:
                 usage = result.usage
                 finish_reason = result.finish_reason
                 cost = usage_cost(model_spec, usage)
-                interaction = dataclasses.replace(interaction, output=result.message)
-                interaction = await self._controls(policy, interaction, Side.OUTPUT, run)
+                checked = await self._controls(
+                    policy, dataclasses.replace(to_model, output=result.message), Side.OUTPUT, run
+                )
+                interaction = dataclasses.replace(interaction, output=checked.output)
                 if reservation is not None:
                     await self._budgets.settle(reservation, usage, cost)
                     settled = True
@@ -343,6 +355,12 @@ class Pipeline:
 
 
 _SEVERITY = list(Action)  # declaration order ALLOW < REDACT < BLOCK
+
+
+def _canary_enabled(policy: Policy) -> bool:
+    return any(
+        c.enabled and c.kind == CANARY_KIND and Side.OUTPUT in c.sides for c in policy.controls
+    )
 
 
 def _ms(seconds: float) -> float:
