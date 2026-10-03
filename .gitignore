@@ -11,3 +11,6 @@ __pycache__/
 var/
 models/*
 !models/README.md
+
+.idea/
+.claude/
