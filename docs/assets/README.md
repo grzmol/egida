@@ -5,7 +5,7 @@
 | `architecture.svg` / `architecture.png` | Diagram przepływu żądania z `docs/architecture.md` (mermaid), PNG 2400 px szerokości |
 | `dashboard.png` | Zrzut `/dashboard` (1600×1000) po `make selftest` i kilku żądaniach demo |
 
-Wygenerowane z commita `85b0a19` (branch `grzegorz`).
+Zrzut dashboardu z commita `85b0a19`; diagram z `docs/architecture.md` w commicie `7c6ea30` (etapy C03, C09, C22, feed sygnatur, telemetria).
 
 ## Jak powstały
 
