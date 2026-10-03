@@ -116,10 +116,15 @@ def _join_letters(run: str) -> str:
 _MIXED_WORD = re.compile(r"\b(?=\w*[^\W\d_])(?=\w*\d)\w+\b")
 _LEET = str.maketrans("013457@$", "oieastas")
 
+# ASCII smuggled as invisible Unicode tag characters (U+E0020-E007E mirror U+0020-007E).
+_TAG_CHARS = re.compile("[\U000e0020-\U000e007e]")
+_TAG_TO_ASCII = {cp: cp - 0xE0000 for cp in range(0xE0020, 0xE007F)}
+
 
 def views(text: str) -> list[tuple[str, str]]:
     """(kind, normalized text) for the text and its decoded forms: ROT13, reversed, letter runs
-    joined, leetspeak, invisible separators as spaces, and each decoded base64 segment."""
+    joined, leetspeak, invisible separators as spaces, tag characters as ASCII, and each
+    decoded base64 segment."""
     variants = [
         ("text", text),
         ("rot13", codecs.encode(text, "rot13")),
@@ -130,6 +135,8 @@ def views(text: str) -> list[tuple[str, str]]:
     if _LETTER_RUN.search(text):
         joined = _LETTER_RUN.sub(lambda m: _join_letters(m.group()), text)
         variants.append(("joined", joined))
+    if _TAG_CHARS.search(text):
+        variants.append(("tags", text.translate(_TAG_TO_ASCII)))
     if _MIXED_WORD.search(text):
         variants.append(("leet", _MIXED_WORD.sub(lambda m: m.group().translate(_LEET), text)))
     variants += [("base64", segment) for segment in decoded_segments(text)]
