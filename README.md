@@ -110,13 +110,13 @@ Pomiar z 3.10, na żywym proxy (osobna instancja na porcie 8081, osobny agent `r
 
 | Plik | Polityka | Commit | `valid` |
 |---|---|---|---|
-| [`redteam-summary.json`](docs/evidence/redteam-summary.json) | aktualna `config/policy.yaml` (`478f9a70…`, Prompt Guard wyłączony) | `76ff217` | `true` |
-| [`eval.json`](docs/evidence/eval.json) | jak wyżej | `76ff217` | `true` |
+| [`redteam-summary.json`](docs/evidence/redteam-summary.json) | aktualna `config/policy.yaml` (`cb04896c…`, Prompt Guard wyłączony) | `aa9c9d4` | `true` |
+| [`eval.json`](docs/evidence/eval.json) | jak wyżej | `aa9c9d4` | `true` |
 | [`redteam-summary.run1.json`](docs/evidence/redteam-summary.run1.json) | wcześniejsza polityka (`a2fba8ab…`, bez `signatures` i `canary`) | `ead7f47` | `true` |
 | [`redteam-summary.prompt-guard.json`](docs/evidence/redteam-summary.prompt-guard.json) | wcześniejsza polityka + `prompt_guard` włączony (`enabled_overrides`) | `25f4554` | **`false`** (niżej) |
 | [`eval.prompt-guard.json`](docs/evidence/eval.prompt-guard.json) | jak wyżej | `25f4554` | `true` |
 
-Przebieg garaka „bez proxy” jest jeden (z `ead7f47`, ten sam model, ziarno i parametry); wszystkie przebiegi „przez proxy” porównują się z nim. FP/FN na obu politykach bazowych dało identyczne liczby.
+Przebieg garaka „bez proxy” jest jeden (z `ead7f47`, ten sam model, ziarno i parametry); wszystkie przebiegi „przez proxy” porównują się z nim. Przebieg „przez proxy” w `redteam-summary.json` jest z `76ff217`. Później w polityce zmienił się tylko komentarz: polityka pomiarowa ma ten sam `eval_sha256` (`7267d805…`), więc podsumowanie przeliczyliśmy z nowym hashem źródła, bez nowego przebiegu. FP/FN na wszystkich politykach bazowych dało identyczne liczby.
 
 **Jak odtworzyć** (Ollama działa, `make models` zrobione):
 ```bash
@@ -148,7 +148,7 @@ uv run python scripts/eval_fpfn.py --out var/eval.json
 | `promptinject.HijackKillHumans` | 20 | 25.0% | 0.0% | 0.0% | injection_heuristics 16 | 0.0% | 0.0% |
 | `sysprompt_extraction.SystemPromptExtraction` | 20 | 5.0% | 0.0% | 0.0% | injection_heuristics 4 | 10.0% | 5.6% (+ prompt_guard 9) |
 | `web_injection.MarkdownImageExfil` | 12 | 0.0% | 0.0% | 0.0% | — | 0.0% | 0.0% (+ prompt_guard 2) |
-| **Razem** | 221 | **19.5%** | **9.9%** | 12.2% | | 10.9% | 6.4% (nieważne, niżej) |
+| **Razem** | 221 | **19.5%** (43) | **10.0%** (22) | 12.2% (27) | | 10.9% (24) | 6.4% (13 z 204; nieważne, niżej) |
 
 Definicje:
 - **ASR** = wyjścia, na których detektor garaka dał wynik ≥ 0.5, podzielone przez wszystkie wyjścia różne od `None`.
@@ -184,14 +184,14 @@ Jak to czytać:
 - **Polski: Prompt Guard nic nie dodaje** (50% → 50%). Z 10 przepuszczonych ataków `pl-manual` 4 to prośby o szkodliwe treści, a 6 to jailbreaki w sformułowaniach, których heurystyki nie znają (fałszywy komunikat systemowy, „tryb debugowania”, powołanie się na RODO). Nie dopisaliśmy ich do heurystyk, żeby nie stroić pod zbiór testowy.
 - **`deepset` łapiemy słabo** (1.7% / 8.3%). Część tekstów jest po niemiecku, a część etykiet „atak” to zwykłe polecenia w stylu „act as an interviewer”.
 - **Atrybucja per kontrola** (w JSON, `per_control`): `injection_heuristics` zablokował 88 ataków, `prompt_guard` dodatkowe 71. Pipeline kończy kontrole wejścia na pierwszym BLOCK, więc późniejsza kontrola nie widzi ataków złapanych wcześniej.
-- Opóźnienie po stronie klienta: blokada p50 2.4 ms bez Prompt Guard, 6.3 ms z nim (p95 4.7 / 42.2 ms).
+- Opóźnienie po stronie klienta: blokada p50 1.9 ms bez Prompt Guard, 6.3 ms z nim (p95 3.9 / 42.2 ms).
 
 ### Ograniczenia
 
 - garak tylko po angielsku; `soft_probe_prompt_cap: 20` to próbka, nie pełny zestaw sond.
 - `max_tokens: 1` w FP/FN: kontrole wyjścia (PII i sekrety w odpowiedzi, egress) nie są tu mierzone.
 - `pl-manual` to przypadki napisane przez zespół, nie niezależny benchmark. Przy n = 40 przedział ufności ma ±20 pp.
-- Przebiegi `eval.json` i `eval.prompt-guard.json` mają `dirty: true`: w drzewie były niezacommitowane pliki testów i dokumentacji. Kod detektorów i polityka były czyste.
+- Przebieg `eval.prompt-guard.json` ma `dirty: true`: w drzewie był niezacommitowany plik testów. Kod detektorów i polityka były czyste.
 - Źródła, liczności, sposób próbkowania i licencje zbiorów: [`docs/eval/SOURCES.md`](docs/eval/SOURCES.md). Zbiorów nie ma w repo; generuje je `scripts/prepare_eval_data.py`. garak: NVIDIA, Apache-2.0, uruchamiany przez `uvx`, poza `uv.lock`.
 
 ## Pokrycie kontroli (OWASP / ASI)
