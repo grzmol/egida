@@ -594,3 +594,28 @@ def test_disallowed_tool_is_a_receipt_not_an_error(
     assert resp.json()["choices"][0]["finish_reason"] == "content_filter"
     assert resp.json()["control_layer"]["blocked_by"] == "access.tool"
     assert "tool_calls" not in resp.json()["choices"][0]["message"]
+
+
+# --- failure modes from the A7 debt audit -------------------------------------------------
+
+
+def test_lone_surrogate_is_a_client_error_not_a_crash(client: TestClient) -> None:
+    """E5: JSON may escape a lone surrogate; it cannot be encoded, hashed or audited."""
+    body = b'{"model":"llama3.2:3b","messages":[{"role":"user","content":"a\\ud800b"}]}'
+    resp = client.post(
+        "/v1/chat/completions", content=body, headers={**AUTH, "Content-Type": "application/json"}
+    )
+    assert resp.status_code == 400
+    assert "UTF-8" in resp.json()["error"]["message"]
+
+
+def test_audit_write_failure_withholds_the_answer(paths: Settings, client: TestClient) -> None:
+    """F5: no decision without a receipt: if the audit cannot be written, the client gets a 503
+    in the OpenAI error format, not the answer and not a 500."""
+    paths.audit_path.chmod(0o400)
+    try:
+        resp = _chat(client)
+    finally:
+        paths.audit_path.chmod(0o600)
+    assert resp.status_code == 503
+    assert resp.json()["error"]["code"] == "audit_unavailable"

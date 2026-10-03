@@ -117,6 +117,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "python-stdnum" },
     { name = "pyyaml" },
+    { name = "starlette" },
     { name = "tokenizers" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -140,6 +141,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.13.5" },
     { name = "python-stdnum", specifier = ">=2.2" },
     { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "starlette", specifier = ">=1.7.0" },
     { name = "tokenizers", specifier = ">=0.23.2" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0" },
 ]

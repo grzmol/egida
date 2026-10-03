@@ -81,8 +81,10 @@ async def test_unchanged_file_is_a_no_op(setup: Any) -> None:
         "version: [unclosed",
         "version: 1\nagents: {}\n",
         "{}",
+        "",
+        "- a\n- b\n",
     ],
-    ids=["broken-yaml", "schema-error", "empty-mapping"],
+    ids=["broken-yaml", "schema-error", "empty-mapping", "empty-file", "list-root"],
 )
 async def test_invalid_policy_is_rejected_once_and_old_stays(setup: Any, bad: str) -> None:
     source, path, sink = setup

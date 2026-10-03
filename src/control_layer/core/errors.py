@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 __all__ = [
+    "AuditError",
     "AuthError",
     "ControlLayerError",
     "FeedError",
@@ -47,3 +48,7 @@ class FeedError(ControlLayerError):
 
 class SignatureLimitError(ControlLayerError):
     """A text exceeds the signature scan limits; the control's on_error decides (fail closed)."""
+
+
+class AuditError(ControlLayerError):
+    """The audit log cannot be written or continued: no decision leaves without its receipt."""
