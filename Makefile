@@ -16,12 +16,15 @@ test:
 run:
 	$(UV) uvicorn control_layer.app:create_app --factory --host 127.0.0.1 --port 8080
 
+# Live selftest runs as selftest-agent (own budget), so it never uses up demo-agent's budget.
+selftest: export CONTROL_LAYER_SELFTEST_AGENT ?= selftest-agent
 selftest:
 	mkdir -p var
 	$(UV) pytest -q tests/test_cases.py --target $(TARGET) --junitxml=var/selftest.xml
 
+AUDIT ?= $(or $(CONTROL_LAYER_AUDIT),var/audit.jsonl)
 verify-audit:
-	$(UV) python -m control_layer.adapters.audit_jsonl verify var/audit.jsonl
+	$(UV) python -m control_layer.adapters.audit_jsonl verify $(AUDIT)
 
 fmt:
 	$(UV) ruff format .
