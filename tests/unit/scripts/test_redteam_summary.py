@@ -100,3 +100,17 @@ def test_eval_policy_adds_agent_and_rejects_collisions() -> None:
     assert policy["controls"] == yaml.safe_load(source)["controls"]
     with pytest.raises(ValueError, match="already defines"):
         redteam.eval_policy(yaml.safe_dump(policy).encode())
+
+
+def test_eval_policy_enables_listed_controls_only() -> None:
+    source = (ROOT / "config" / "policy.yaml").read_bytes()
+    controls = {
+        c["id"]: c for c in redteam.eval_policy(source, enable=("prompt_guard",))["controls"]
+    }
+    assert controls["prompt_guard"]["enabled"] is True
+    original = {c["id"]: c for c in yaml.safe_load(source)["controls"]}
+    assert {k: v for k, v in controls.items() if k != "prompt_guard"} == {
+        k: v for k, v in original.items() if k != "prompt_guard"
+    }
+    with pytest.raises(ValueError, match="unknown control"):
+        redteam.eval_policy(source, enable=("nope",))
