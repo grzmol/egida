@@ -36,6 +36,16 @@ agents:
     allowed_models: [llama3.2:3b]
     allowed_tools: []
     budget: small
+  selftest-agent:              # `make selftest` runs as this agent, so it never eats demo-agent's budget
+    key_sha256: bb0ea463317a34f119abfa77b4c4026653bf4b835b80a8619852dab53909767d   # sha256("sk-selftest-agent")
+    allowed_models: [llama3.2:3b]
+    allowed_tools: []          # same permissions as demo-agent: cases expect its decisions
+    budget: selftest
+  tools-agent:                 # demo agent with tools (scripts/demo_agent.py, tests/cases/tools-indirect.yaml)
+    key_sha256: 354fda1a4001f25735fa24a64e3f12054efbfdf4a94463758357639159a22b9e   # sha256("sk-tools-agent")
+    allowed_models: [llama3.2:3b]
+    allowed_tools: [search_docs, read_file, http_get]   # delete_file deliberately missing (ACL scene)
+    budget: default
 
 budgets:
   default:
@@ -51,6 +61,13 @@ budgets:
     max_requests: 30
     window_s: 3600
     max_identical: 3
+    identical_window_s: 10
+  selftest:                    # ~140 requests per selftest run; loop detection as in default
+    max_tokens: 2000000
+    max_cost: 50.0
+    max_requests: 2000
+    window_s: 3600
+    max_identical: 5
     identical_window_s: 10
 
 # Controls run in this order (cheap first). A control missing from this list is disabled.
@@ -70,6 +87,19 @@ controls:
     sides: [input]
     action: block
     threshold: 0.5
+  - id: egress.tool            # C14: tool-call arguments with URLs outside the allowlist (exfiltration)
+    kind: egress
+    enabled: false             # until tests/cases/tools-indirect.yaml (B7): the runner cannot fake tool_calls yet
+    sides: [output]
+    action: block              # blocking output controls before redacting ones: precise blocked_by
+    threshold: 0.5
+    params: {allowed_domains: [bank.example, docs.python.org], scan: [tool_arguments]}
+  - id: egress                 # C14: markdown images/links and URLs with data in the answer
+    kind: egress
+    sides: [output]
+    action: redact
+    threshold: 0.5
+    params: {allowed_domains: [bank.example, docs.python.org], scan: [content]}
   - id: prompt_guard           # C07: Llama Prompt Guard 2 86M (ONNX). Needs `make models`.
     kind: prompt_guard
     enabled: false             # decision at Sync 3 (18:00)

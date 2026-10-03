@@ -8,6 +8,7 @@ from typing import Any
 
 import yaml
 
+from control_layer.adapters.fake_model import FakeGuardModelClient
 from control_layer.app import _build_detectors
 from control_layer.core.policy import build_policy
 from control_layer.core.ports import DetectorDeps
@@ -34,8 +35,9 @@ def _without_deploy_fields(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 def test_compose_policy_loads() -> None:
-    # Same param models as the running app, so control params are validated too.
-    detectors = _build_detectors(DetectorDeps())
+    # Same param models as the running app (which always passes a guard client), so control
+    # params are validated too.
+    detectors = _build_detectors(DetectorDeps(guard=FakeGuardModelClient()))
     build_policy(_load(COMPOSE), {kind: d.Params for kind, d in detectors.items()})
 
 
