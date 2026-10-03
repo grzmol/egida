@@ -50,6 +50,7 @@ class PipelineResult:
     usage: Usage | None
     cost: float | None
     latency_ms: Mapping[str, float]
+    finish_reason: str | None  # upstream finish_reason; None when the model was not called
     policy: PolicySnapshot
 
 
@@ -97,6 +98,7 @@ class Pipeline:
         started = self._clock.monotonic()
         usage: Usage | None = None
         cost: float | None = None
+        finish_reason: str | None = None
         reservation: str | None = None
         settled = False
 
@@ -124,6 +126,7 @@ class Pipeline:
                 finally:
                     run.latency_ms["upstream"] = _ms(self._clock.monotonic() - t0)
                 usage = result.usage
+                finish_reason = result.finish_reason
                 cost = usage_cost(model_spec, usage)
                 interaction = dataclasses.replace(interaction, output=result.message)
                 interaction = await self._controls(policy, interaction, Side.OUTPUT, run)
@@ -171,6 +174,7 @@ class Pipeline:
             usage=usage,
             cost=cost,
             latency_ms=dict(run.latency_ms),
+            finish_reason=finish_reason,
             policy=snapshot,
         )
 
