@@ -6,7 +6,7 @@ numbers pass.
 """
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from typing import ClassVar, Literal
 
 import anyio
@@ -24,49 +24,89 @@ from control_layer.detectors.validators import (
     strip_separators,
 )
 
-Pattern = tuple[str, re.Pattern[str], Callable[[str], bool] | None]
+Finder = Callable[[str], Iterator[tuple[int, int]]]
+Pattern = tuple[str, Finder]
+# Digit guards: no digit, and no "digit-" / "-digit", next to the number. A lone hyphen is
+# fine ("PESEL-44051401359"), but the number must not be a slice of a longer one.
+_NOT_AFTER, _NOT_BEFORE = r"(?<!\d)(?<!\d-)", r"(?!\d)(?!-\d)"
+_DIGIT_GROUPS = re.compile(rf"{_NOT_AFTER}\d+(?:[ -]\d+)*{_NOT_BEFORE}")
+_GROUP = re.compile(r"\d+")
+
+
+def regex_finder(rx: str, is_valid: Callable[[str], bool] | None = None, group: int = 0) -> Finder:
+    pattern = re.compile(rx)
+
+    def find(text: str) -> Iterator[tuple[int, int]]:
+        for m in pattern.finditer(text):
+            if is_valid is None or is_valid(m.group(group)):
+                yield m.span(group)
+
+    return find
+
+
+def card_spans(text: str) -> Iterator[tuple[int, int]]:
+    """Card = a whole run of digit groups, or the run minus short leading numbers (<= 3 digits,
+    space-separated) such as a quantity: "qty 2 4111 1111 1111 1111" yields only the card.
+    Never a slice from the middle of a longer number (account numbers would hit Luhn by chance).
+    """
+    for run in _DIGIT_GROUPS.finditer(text):
+        groups = [m.span() for m in _GROUP.finditer(text, run.start(), run.end())]
+        if len(groups) > 7:  # a card has at most 5 groups, plus up to 2 short leading numbers
+            continue
+        for i in range(len(groups)):
+            if i and (groups[i - 1][1] - groups[i - 1][0] > 3 or text[groups[i][0] - 1] != " "):
+                break
+            digits = "".join(text[s:e] for s, e in groups[i:])
+            if 13 <= len(digits) <= 19 and is_card(digits):
+                yield groups[i][0], groups[-1][1]
+                break
+
 
 # Order matters: earlier patterns win on overlapping spans (an IBAN is not also a card).
 PATTERNS: tuple[Pattern, ...] = (
-    (
-        "iban",
-        re.compile(r"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,3})?\b"),
-        is_iban,
-    ),
+    ("iban", regex_finder(r"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,3})?\b", is_iban)),
     (
         "iban",  # Polish NRB: IBAN without the "PL" prefix
-        re.compile(r"(?<![\d-])\d{2}(?: ?\d{4}){6}(?![\d-])"),
-        lambda m: is_iban("PL" + strip_separators(m)),
+        regex_finder(
+            rf"{_NOT_AFTER}\d{{2}}(?: ?\d{{4}}){{6}}{_NOT_BEFORE}",
+            lambda m: is_iban("PL" + strip_separators(m)),
+        ),
     ),
-    (
-        "card",
-        re.compile(r"(?<![\d-])(?:\d[ -]?){12,18}\d(?![\d-])"),
-        lambda m: is_card(strip_separators(m)),
-    ),
+    ("card", card_spans),
     (
         "nip",
-        re.compile(r"(?<![\d-])\d{3}[ -]?\d{3}[ -]?\d{2}[ -]?\d{2}(?![\d-])"),
-        lambda m: is_nip(strip_separators(m)),
+        regex_finder(
+            rf"{_NOT_AFTER}\d{{3}}[ -]?\d{{3}}[ -]?\d{{2}}[ -]?\d{{2}}{_NOT_BEFORE}",
+            lambda m: is_nip(strip_separators(m)),
+        ),
     ),
     (
         "pesel",
-        re.compile(r"(?<![\d-])\d{6}[ -]?\d{5}(?![\d-])"),
-        lambda m: is_pesel(strip_separators(m)),
+        regex_finder(
+            rf"{_NOT_AFTER}\d{{6}}[ -]?\d{{5}}{_NOT_BEFORE}",
+            lambda m: is_pesel(strip_separators(m)),
+        ),
     ),
     (
         "phone",
-        re.compile(
+        regex_finder(
             r"(?<![\w+])(?:\+\d{2,3}[ -]?)?\d{3}[ -]\d{3}[ -]\d{3}(?!\d)|\+\d{2,3}\d{9}(?!\d)"
         ),
-        None,
+    ),
+    (
+        "phone",  # bare 9 digits only next to a phone keyword, else order numbers would match
+        regex_finder(
+            r"(?i)\b(?:tel|telefon\w*|phone|mobile|kom[oó]rk\w*|numer\w*|zadzwo\w*|call)\b"
+            r"[^\d\n]{0,15}((?:\+\d{2,3} ?)?\d{9})(?!\d)",
+            group=1,
+        ),
     ),
     (
         "email",
-        re.compile(r"(?<![\w.%+-])[\w.%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b"),
-        None,
+        regex_finder(r"(?<![\w.%+-])[\w.%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b"),
     ),
 )
-ENTITIES = frozenset(label for label, _, _ in PATTERNS)
+ENTITIES = frozenset(label for label, _ in PATTERNS)
 TAGS = ("owasp.llm02-2025", "atlas.AML.T0057")
 Entity = Literal["email", "phone", "pesel", "nip", "iban", "card"]
 
@@ -77,16 +117,11 @@ def find_pii(
     """(label, start, end) for each PII item of the given entity types, sorted by position."""
     hits: list[tuple[str, int, int]] = []
     taken = bytearray(len(text))
-    for label, pattern, is_valid in (*PATTERNS, *extra):
+    for label, finder in (*PATTERNS, *extra):
         if label not in entities:
             continue
-        for m in pattern.finditer(text):
-            start, end = m.span()
-            if (
-                start < end
-                and not any(taken[start:end])
-                and (is_valid is None or is_valid(m.group()))
-            ):
+        for start, end in finder(text):
+            if start < end and not any(taken[start:end]):
                 taken[start:end] = b"\x01" * (end - start)
                 hits.append((label, start, end))
     return sorted(hits, key=lambda h: h[1])
@@ -114,7 +149,7 @@ class PiiParams(BaseModel):
 
 
 def _scan(control_id: str, texts: list[tuple[str, str]], params: PiiParams) -> list[Finding]:
-    extra = tuple((label, re.compile(rx), None) for label, rx in params.extra_patterns.items())
+    extra = tuple((label, regex_finder(rx)) for label, rx in params.extra_patterns.items())
     entities = frozenset(params.entities) | frozenset(params.extra_patterns)
     hits: list[Hit] = []
     evidence: list[str] = []
