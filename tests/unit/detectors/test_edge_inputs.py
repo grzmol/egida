@@ -91,21 +91,11 @@ CORPUS = {
     "D8-nested-base64": chat(b64(PHRASE, times=5)),
     "D8-bad-padding": chat(b64(PHRASE).rstrip("=") + "==="),
 }
-REDOS = (
-    "B9 audit: role_reset regex (#{2,}|={3,}|-{3,})\\s*... is O(n^2) on long runs of -, =, # "
-    "(injection_heuristics.py:160), x3 views; 100k dashes take ~190 s"
-)
 PG2_SLOW = (
     "B9 audit: prompt_guard default max_windows=16 (prompt_guard.py:40) needs ~2 s on a "
     "max-size input vs timeout_ms 800 (config/policy.yaml:106): always times out -> block"
 )
-PG2_SURROGATE = (
-    "B9 audit: tokenizers raises a generic TypeError on a lone surrogate "
-    "(prompt_guard.py:116); fail-closed only through on_error"
-)
 KNOWN_BUGS = {
-    # skip, not xfail: ~190 s per run; the strict xfail is test_d1_dash_run_scans_within_timeout
-    ("injection_heuristics", "D1-dashes"): pytest.mark.skip(reason=REDOS),
     **{
         ("prompt_guard", name): pytest.mark.xfail(strict=True, reason=PG2_SLOW)
         for name in (
@@ -115,10 +105,6 @@ KNOWN_BUGS = {
             "D3-nfkc-expanding",
             "D8-long-base64",
         )
-    },
-    **{
-        ("prompt_guard", name): pytest.mark.xfail(strict=True, reason=PG2_SURROGATE)
-        for name in ("D6-surrogate-content", "D6-surrogate-tool")
     },
 }
 MATRIX = [
@@ -176,13 +162,6 @@ async def test_edge_input_keeps_detector_contract(kind: str, name: str) -> None:
 
 
 @pytest.mark.anyio
-@pytest.mark.xfail(strict=True, reason=REDOS)
-async def test_d1_dash_run_scans_within_timeout() -> None:
-    """15k dashes (~4 s) instead of the full 100k D1 case, which runs ~190 s."""
-    await scan_checked("injection_heuristics", chat("-" * 15_000), Side.INPUT)
-
-
-@pytest.mark.anyio
 async def test_d2_redaction_hits_exactly_the_pesel() -> None:
     interaction = CORPUS["D2-dotted-capital-i"]
     findings = await scan_checked("pii", interaction)
@@ -201,21 +180,10 @@ async def test_d3_secret_span_lands_on_the_original_text() -> None:
     assert [texts[s.target][s.start : s.end] for f in findings for s in f.spans] == [AWS_KEY]
 
 
-TAG_SMUGGLING = (
-    "B9 audit: normalize() deletes Unicode TAG chars U+E0020-E007F (normalize.py:37,55) "
-    "instead of decoding them to ASCII, so a tag-smuggled instruction vanishes"
-)
-
-
 @pytest.mark.anyio
 @pytest.mark.parametrize(
     "variant",
-    [
-        pytest.param(v, marks=pytest.mark.xfail(strict=True, reason=TAG_SMUGGLING))
-        if v == "tag-chars"
-        else v
-        for v in D5_VARIANTS
-    ],
+    D5_VARIANTS,
 )
 async def test_d5_obfuscated_injection_is_found(variant: str) -> None:
     [finding] = await scan_checked("injection_heuristics", CORPUS[f"D5-{variant}"], Side.INPUT)
