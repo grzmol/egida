@@ -34,13 +34,6 @@ class Action(StrEnum):
     REDACT = "redact"
     BLOCK = "block"
 
-    @property
-    def severity(self) -> int:
-        return _SEVERITY[self]
-
-
-_SEVERITY = {Action.ALLOW: 0, Action.REDACT: 1, Action.BLOCK: 2}
-
 
 class Side(StrEnum):
     INPUT = "input"

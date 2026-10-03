@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
+import anyio
 import httpx
 from fastapi import FastAPI
 
@@ -20,7 +21,7 @@ from control_layer.adapters.budget_passthrough import PassthroughBudgetStore
 from control_layer.adapters.clock import SystemClock
 from control_layer.adapters.http_api import Runtime, install_error_handlers, router
 from control_layer.adapters.ollama_client import OllamaClient
-from control_layer.adapters.policy_static import StaticPolicySource, load_policy_file
+from control_layer.adapters.policy_file import PolicyFile
 from control_layer.core.pipeline import Pipeline
 from control_layer.core.ports import Clock, DetectorDeps, ModelClient
 from control_layer.detectors import REGISTRY
@@ -32,6 +33,7 @@ __all__ = ["Settings", "create_app"]
 class Settings:
     policy_path: Path
     audit_path: Path
+    policy_poll_s: float = 1.0
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -57,10 +59,10 @@ def create_app(
             deps = DetectorDeps()
             detectors = {kind: factory(deps) for kind, factory in REGISTRY.items()}
             param_models = {kind: d.Params for kind, d in detectors.items()}
-            policy = StaticPolicySource(
-                load_policy_file(cfg.policy_path, param_models, clock_.now())
-            )
             audit = FanoutAuditSink([AuditJsonl(cfg.audit_path)])
+            policy = PolicyFile(
+                cfg.policy_path, param_models, audit, clock_, interval_s=cfg.policy_poll_s
+            )
             pipeline = Pipeline(
                 policy=policy,
                 detectors=detectors,
@@ -69,8 +71,15 @@ def create_app(
                 audit=audit,
                 clock=clock_,
             )
-            app.state.runtime = Runtime(pipeline=pipeline, policy=policy)
-            yield
+            app.state.runtime = Runtime(
+                pipeline=pipeline, policy=policy, registered_kinds=tuple(sorted(detectors))
+            )
+            # startup errors (e.g. invalid policy) above propagate unwrapped; only the poller runs
+            # inside the task group, which is cancelled on shutdown (no orphan task)
+            async with anyio.create_task_group() as tasks:
+                tasks.start_soon(policy.run)
+                yield
+                tasks.cancel_scope.cancel()
 
     app = FastAPI(
         title="AI Control Layer",

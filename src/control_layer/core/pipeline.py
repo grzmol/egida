@@ -48,8 +48,6 @@ class PipelineResult:
     interaction: Interaction  # redacted; output is None when blocked before the model
     decision: Decision
     usage: Usage | None
-    cost: float | None
-    latency_ms: Mapping[str, float]
     finish_reason: str | None  # upstream finish_reason; None when the model was not called
     policy: PolicySnapshot
 
@@ -139,7 +137,7 @@ class Pipeline:
 
         run.latency_ms["total"] = _ms(self._clock.monotonic() - started)
         decision = Decision(
-            action=max((j.action for j in run.judged), default=Action.ALLOW, key=_severity)
+            action=max((j.action for j in run.judged), default=Action.ALLOW, key=_SEVERITY.index)
             if run.blocked_by is None
             else Action.BLOCK,
             findings=tuple(j.finding for j in run.judged),
@@ -172,8 +170,6 @@ class Pipeline:
             interaction=interaction,
             decision=decision,
             usage=usage,
-            cost=cost,
-            latency_ms=dict(run.latency_ms),
             finish_reason=finish_reason,
             policy=snapshot,
         )
@@ -344,8 +340,7 @@ class Pipeline:
         )
 
 
-def _severity(action: Action) -> int:
-    return action.severity
+_SEVERITY = list(Action)  # declaration order ALLOW < REDACT < BLOCK
 
 
 def _ms(seconds: float) -> float:
