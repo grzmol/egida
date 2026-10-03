@@ -4,7 +4,7 @@ One YAML list per area. `tests/test_cases.py` runs every case offline through AS
 (`make test`) and against a live instance (`make selftest`, `--target URL`).
 
 Base setup: `config/policy.yaml`, agent `demo-agent` with key `sk-demo-agent`, model `llama3.2:3b`.
-Fake model reply (ASGI): `"OK"` unless `model_reply` is set.
+Fake model reply (ASGI): `"OK"` unless `model_reply` is set. Live (`--target`): requests get `max_tokens: 1` unless the case sets it, so only input-side controls decide; output-side controls are covered offline.
 
 | Field | Meaning |
 |---|---|

@@ -167,7 +167,7 @@ function renderStats(stats, policy) {
     const t = perControl[id];
     body.appendChild(row([
       [id],
-      [p ? (p.enabled ? p.action + " ≥ " + p.threshold : "disabled") : "not in policy"],
+      [p ? (p.enabled ? p.action + " ≥ " + p.threshold : "disabled") : "built-in"],
       [c.block, "d-block"], [c.redact, "d-redact"], [c.below_threshold], [c.errors],
       [latency ? latency.p95.toFixed(1) : null],
       [t ? t.negative_pass + " + " + t.positive_pass + " of " + t.total + " passed" : null],

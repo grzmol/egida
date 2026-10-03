@@ -29,9 +29,14 @@ DEFAULT_MODEL = "llama3.2:3b"
 AGENT_KEYS: dict[str, str] = json.loads(
     os.environ.get(
         "CONTROL_LAYER_TEST_KEYS",
-        '{"demo-agent": "sk-demo-agent", "ci-agent": "sk-ci-agent"}',
+        '{"demo-agent": "sk-demo-agent", "ci-agent": "sk-ci-agent",'
+        ' "selftest-agent": "sk-selftest-agent"}',
     )
 )
+
+# Live selftest runs as its own agent when the policy has one, so it never eats the demo
+# agent's budget: CONTROL_LAYER_SELFTEST_AGENT=selftest-agent make selftest
+SELFTEST_AGENT = os.environ.get("CONTROL_LAYER_SELFTEST_AGENT", "demo-agent")
 
 Case = dict[str, Any]
 
@@ -155,8 +160,16 @@ def run_offline(case: Case, tmp_path: Path) -> None:
 
 
 def run_live(case: Case, client: httpx.Client) -> None:
+    if SELFTEST_AGENT != "demo-agent" and case.get("request") is not None:
+        case = {**case, "request": {"agent": SELFTEST_AGENT, **case["request"]}}
+    request = build_request(case)
+    if isinstance(request.get("json"), dict):
+        # One output token: the live model cannot add its own (example) PII or keys to the
+        # answer, so output-side controls stay out of input cases. Output controls are tested
+        # offline with `model_reply`. Also keeps selftest fast and cheap on the agent budget.
+        request["json"].setdefault("max_tokens", 1)
     for _ in range(case.get("repeat", 1)):
-        response = client.request(**build_request(case))
+        response = client.request(**request)
     check(case, response, None)
 
 
@@ -166,6 +179,8 @@ def report() -> Iterator[dict[str, tuple[Case, str]]]:
     yield results
     per_control: dict[str, dict[str, int]] = {}
     for case, outcome in results.values():
+        if outcome == "skipped":  # not run, so neither passed nor failed
+            continue
         row = per_control.setdefault(
             case["control"], {"negative_pass": 0, "positive_pass": 0, "total": 0}
         )
@@ -200,7 +215,8 @@ def test_case(
     if live_client is not None and "offline-only" in tags:
         report[case["id"]] = (case, "skipped")
         pytest.skip("offline-only")
-    if case["control"] in REGISTRY and case["control"] not in enabled_controls():
+    known = case["control"] in REGISTRY or "semantic" in tags
+    if known and case["control"] not in enabled_controls():
         report[case["id"]] = (case, "skipped")
         pytest.skip(f"control {case['control']} is not enabled in {POLICY_PATH}")
     if "needs-budget-store" in tags:  # strict: turns red once budgets work, then drop the tag

@@ -33,6 +33,13 @@ _DIGIT_GROUPS = re.compile(rf"{_NOT_AFTER}\d+(?:[ -]\d+)*{_NOT_BEFORE}")
 _GROUP = re.compile(r"\d+")
 
 
+def is_placeholder_number(value: str) -> bool:
+    """123-456-789, 987 654 321, 000 000 000: examples in forms and docs, not someone's phone."""
+    digits = strip_separators(value)[-9:]
+    steps = {int(b) - int(a) for a, b in zip(digits, digits[1:], strict=False)}
+    return len(set(digits)) == 1 or steps in ({1}, {-1})
+
+
 def regex_finder(rx: str, is_valid: Callable[[str], bool] | None = None, group: int = 0) -> Finder:
     pattern = re.compile(rx)
 
@@ -90,7 +97,8 @@ PATTERNS: tuple[Pattern, ...] = (
     (
         "phone",
         regex_finder(
-            r"(?<![\w+])(?:\+\d{2,3}[ -]?)?\d{3}[ -]\d{3}[ -]\d{3}(?!\d)|\+\d{2,3}\d{9}(?!\d)"
+            r"(?<![\w+])(?:\+\d{2,3}[ -]?)?\d{3}[ -]\d{3}[ -]\d{3}(?!\d)|\+\d{2,3}\d{9}(?!\d)",
+            lambda m: not is_placeholder_number(m),
         ),
     ),
     (

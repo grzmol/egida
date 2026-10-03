@@ -24,7 +24,12 @@ _PL_ADJ = (
     r"(poprzedni\w*|wczesniejsz\w*|powyzsz\w*|wszystki\w*|dotychczasow\w*|systemow\w*|"
     r"twoj\w*|twoi\w*|swoj\w*|swoi\w*)"
 )
-_PL_NOUN = r"(instrukcj\w*|polecen\w*|zasad\w*|regul\w*|wytyczn\w*|prompt\w*)"
+_PL_NOUN = (
+    r"(instrukcj\w*|polecen\w*|zasad\w*|regul\w*|wytyczn\w*|prompt\w*|ograniczen\w*|"
+    r"filtr\w*|zabezpieczen\w*)"
+)
+_PL_REVEAL = r"(podaj\w*|pokaz\w*|wypisz\w*|powtorz\w*|ujawni\w*|wyswietl\w*|zdradz\w*)"
+_PL_HIDDEN = r"(tajn\w*|ukryt\w*|sekretn\w*|systemow\w*|bazow\w*|poczatkow\w*)"
 _PL_IGNORE = r"(zignoruj|ignoruj|pomin|zapomnij( o)?|olej|nie zwazaj na|nie zwracaj uwagi na)"
 _BENIGN_OBJECT = r"(message|messages|typos?|email|e-mail|question|answer|reply|post|comment)"
 
@@ -105,7 +110,7 @@ PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         ),
         (
             "pl_reveal_system_prompt",
-            r"\b(podaj|pokaz|wypisz|powtorz|ujawnij|wyswietl|zdradz)\s+(mi\s+)?(\w+\s+)?"
+            rf"\b{_PL_REVEAL}\s+(mi\s+)?(\w+\s+)?"
             r"(prompt\w*\s+systemow\w*|systemow\w*\s+prompt\w*|instrukcj\w*\s+systemow\w*|"
             r"systemow\w*\s+instrukcj\w*)",
         ),
@@ -121,8 +126,44 @@ PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         ),
         (
             "pl_no_restrictions",
-            r"\b(udawaj|wyobraz sobie|zaloz)\b.{0,30}\bnie (masz|obowiazuja cie|ma) (zadnych )?"
+            r"\b(udawaj|wyobraz sobie|zaloz)\b.{0,100}\bnie (masz|obowiazuja cie|ma) (zadnych )?"
             r"(ograniczen|zasad|regul|filtrow|wytycznych)",
+        ),
+        (
+            "pl_reveal_hidden",
+            rf"\b{_PL_REVEAL}\s+(\w+\s+){{0,2}}({_PL_HIDDEN}\s+"
+            rf"(instrukcj\w*|prompt\w*|klucz\w*|hasl\w*|token\w*)|(instrukcj\w*|prompt\w*)\s+{_PL_HIDDEN})",
+        ),
+        (
+            "pl_ignore_object",  # only the unambiguous verbs: "pomin zasady formatowania" is benign
+            r"\b(zignoruj|ignoruj|olej)\s+(\w+\s+){0,2}(instrukcj\w*|polecen\w*|wytyczn\w*|"
+            r"prompt\w*|ograniczen\w*|zabezpieczen\w*)",
+        ),
+        (
+            "pl_bypass_safety",
+            r"\b(pomin\w*|zignor\w*|ignor\w*|wylacz\w*|obejs\w*|obejdz\w*)\s+(\w+\s+)?"
+            r"(regul\w*|zasad\w*|filtr\w*|zabezpieczen\w*|ograniczen\w*)\s+bezpieczenstw\w*",
+        ),
+        (
+            "pl_mode_switch",
+            r"\btryb\w*\s+(\w+\s+)?bez\s+(zadnych\s+)?(filtrow|ograniczen|cenzury|zasad|"
+            r"zabezpieczen)",
+        ),
+        (
+            "grandma_exploit",
+            r"\b(babci\w*|babcia|dziadek|dziadk\w*|grandma|grandmother|grandpa)\b.{0,100}"
+            r"\b(prompt\w* systemow\w*|system prompt|instrukcj\w* systemow\w*|klucz\w* api|"
+            r"api keys?|hasl\w*|password)",
+        ),
+        (
+            "role_reset",
+            r"(#{2,}|={3,}|-{3,})\s*(koniec|end of)\s+(kontekstu|context|instrukcji|instructions|"
+            r"user input)|\b(nowa rola|new role)\s*:",
+        ),
+        (
+            "decode_and_execute",
+            r"\b(zdekoduj|odkoduj|odwroc|decode|reverse)\b.{0,40}\b(wykonaj|wykonac|execute|"
+            r"follow|obey|zastosuj)\b",
         ),
         (
             "pl_disobey",
