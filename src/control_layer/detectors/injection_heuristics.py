@@ -39,7 +39,7 @@ PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         (
             "ignore_instructions",
             rf"\b(ignore|disregard|forget|bypass)\s+((all|any|the|of|my|these)\s+)*"
-            rf"{_EN_ADJ}\s+(\w+\s+)?{_EN_NOUN}\b",
+            rf"{_EN_ADJ}\s+(\w+\s+){{0,2}}{_EN_NOUN}\b",  # "previous and following instructions"
         ),
         (
             "ignore_everything_before",
