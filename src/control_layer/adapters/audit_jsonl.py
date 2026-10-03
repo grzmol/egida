@@ -38,25 +38,6 @@ def _hash(record_without_hash: dict[str, Any]) -> str:
     return hashlib.sha256(_canonical(record_without_hash).encode("utf-8")).hexdigest()
 
 
-def _last_line(path: Path) -> str | None:
-    with path.open("rb") as fh:
-        fh.seek(0, 2)
-        end = fh.tell()
-        chunk = 4096
-        pos = end
-        buf = b""
-        while pos > 0:
-            step = min(chunk, pos)
-            pos -= step
-            fh.seek(pos)
-            buf = fh.read(step) + buf
-            stripped = buf.rstrip(b"\n")
-            if b"\n" in stripped:
-                return stripped.rsplit(b"\n", 1)[1].decode("utf-8")
-        stripped = buf.rstrip(b"\n")
-        return stripped.decode("utf-8") if stripped else None
-
-
 class AuditJsonl:
     """AuditSink writing a hash-chained JSONL file. Raw content never reaches this layer."""
 
@@ -66,22 +47,18 @@ class AuditJsonl:
         self._seq = 0
         self._prev = GENESIS_HASH
         path.parent.mkdir(parents=True, exist_ok=True)
-        if path.exists():
-            last = _last_line(path)
-            if last is not None:
-                try:
-                    record = json.loads(last)
-                    self._seq = int(record["seq"])
-                    self._prev = str(record["hash"])
-                except (ValueError, KeyError, TypeError) as exc:
-                    raise AuditError(
-                        f"{path}: last line is not a valid audit record; refusing to start a new "
-                        f"chain on top of it ({exc})"
-                    ) from exc
-
-    @property
-    def path(self) -> Path:
-        return self._path
+        lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+        # ponytail: reads the whole log once at startup; tail-seek if logs grow past ~100 MB
+        if lines:
+            try:
+                record = json.loads(lines[-1])
+                self._seq = int(record["seq"])
+                self._prev = str(record["hash"])
+            except (ValueError, KeyError, TypeError) as exc:
+                raise AuditError(
+                    f"{path}: last line is not a valid audit record; refusing to start a new "
+                    f"chain on top of it ({exc})"
+                ) from exc
 
     async def emit(self, event: AuditEvent) -> None:
         async with self._lock:

@@ -57,10 +57,5 @@ class AuditEvent:
     detail: str | None = None
 
     def to_dict(self) -> dict[str, object]:
-        """JSON-serializable dict with `schema` = audit.v1 (enums as their string values)."""
-        data = dataclasses.asdict(self)
-        data["latency_ms"] = dict(self.latency_ms)
-        data["findings"] = [dict(f) for f in data["findings"]]
-        for item in data["findings"]:
-            item["tags"] = list(item["tags"])
-        return {"schema": AUDIT_SCHEMA, **data}
+        """JSON-serializable dict with `schema` = audit.v1 (StrEnums serialize as strings)."""
+        return {"schema": AUDIT_SCHEMA, **dataclasses.asdict(self)}
