@@ -94,7 +94,7 @@ controls:
     on_error: block
     timeout_ms: 300
     params: {rule_action: block, disabled_rules: []}
-  - id: pii                    # C04: e-mail, phone, PESEL, NIP, REGON, IBAN, card (checksums)
+  - id: pii                    # C04: e-mail, phone, PESEL, NIP, IBAN, card (checksums)
     kind: pii
     sides: [input, output]
     action: redact

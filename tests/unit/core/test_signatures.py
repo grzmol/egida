@@ -385,3 +385,13 @@ def test_no_signature_control_skips_every_rule(policy_dict: dict[str, Any]) -> N
     body = signature_cases(_snapshot(_rule()), _policy(policy_dict, []), "demo-agent")
     assert body["cases"] == []
     assert [s["rule_id"] for s in body["skipped"]] == ["SIG-0100"]
+
+
+def test_line_wrapped_base64_payload_is_rejoined() -> None:
+    """MIME / base64.encodebytes wrap at 76 characters; a wrapped pickle must still match."""
+    wrapped = (
+        PICKLE_P4_SYSTEM[:20] + "\n" + PICKLE_P4_SYSTEM[20:40] + "\r\n  " + PICKLE_P4_SYSTEM[40:]
+    )
+    assert match_unit_text(_pickle_rule(), wrapped) is True
+    assert match_unit_text(_globals_rule(), wrapped) is True
+    assert match_unit_text(_pickle_rule(), "aGVsbG8gd29y\nbGQgaGVsbG8gd29ybGQ=") is False

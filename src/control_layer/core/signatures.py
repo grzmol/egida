@@ -64,6 +64,7 @@ MAX_DECODED_BYTES: Final = 1 << 20
 MAX_PATTERN_CHARS: Final = 256
 
 _BASE64_CANDIDATE = re.compile(r"(?<![A-Za-z0-9+/=_-])[A-Za-z0-9+/_-]{16,}={0,2}")
+_LINE_BREAK = re.compile(r"[ \t]*\r?\n[ \t]*")
 _BACKREFERENCE = re.compile(r"\\[1-9]|\(\?P=")
 _NESTED_QUANTIFIER = re.compile(
     r"\((?:[^()\\]|\\.)*(?:[+*]|\{\d*,\d*\})(?:[^()\\]|\\.)*\)(?:[+*]|\{\d*,\d*\})"
@@ -362,12 +363,17 @@ def _decoded(decode: str, text: str, origin: tuple[int, int] | None) -> Iterator
         plain = urllib.parse.unquote(text, errors="replace")
         yield _Unit(plain, plain.encode("utf-8"), origin or (0, len(text)))
         return
-    candidates = list(_BASE64_CANDIDATE.finditer(text))
-    if len(candidates) > MAX_BASE64_CANDIDATES:
+    found = [(m.group(), origin or m.span()) for m in _BASE64_CANDIDATE.finditer(text)]
+    if "\n" in text or "\r" in text:
+        # MIME / base64.encodebytes wrap lines every 76 characters: rejoined, a wrapped payload is
+        # one candidate again; spans cover the whole text (positions shift when joining)
+        joined = _LINE_BREAK.sub("", text)
+        found += [(m.group(), origin or (0, len(text))) for m in _BASE64_CANDIDATE.finditer(joined)]
+    if len(found) > MAX_BASE64_CANDIDATES:
         raise SignatureLimitError(f"more than {MAX_BASE64_CANDIDATES} base64 candidates")
     total = 0
-    for m in candidates:
-        blob = m.group().replace("-", "+").replace("_", "/")
+    for candidate, where in found:
+        blob = candidate.replace("-", "+").replace("_", "/")
         blob += "=" * (-len(blob) % 4)
         try:
             raw = base64.b64decode(blob, validate=True)
@@ -376,7 +382,7 @@ def _decoded(decode: str, text: str, origin: tuple[int, int] | None) -> Iterator
         total += len(raw)
         if total > MAX_DECODED_BYTES:
             raise SignatureLimitError(f"more than {MAX_DECODED_BYTES} decoded base64 bytes")
-        yield _Unit(raw.decode("latin-1"), raw, origin or m.span())
+        yield _Unit(raw.decode("latin-1"), raw, where)
 
 
 def _match_unit(rule: CompiledRule, unit: _Unit) -> list[tuple[int, int]] | None:
