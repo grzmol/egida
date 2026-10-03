@@ -1,0 +1,113 @@
+# C01 identity, C02 model allowlist, D01 path allowlist, input validation. Schema: tests/cases/README.md
+- id: auth-01
+  control: auth
+  polarity: negative
+  tags: [judge-likely]
+  api_key: null
+  request:
+    messages: [{role: user, content: "Hello (auth-01)"}]
+  expect: {http_status: 401}
+
+- id: auth-02
+  control: auth
+  polarity: negative
+  api_key: sk-wrong-key
+  request:
+    messages: [{role: user, content: "Hello (auth-02)"}]
+  expect: {http_status: 401}
+
+- id: auth-03
+  control: auth
+  polarity: negative
+  api_key: null
+  headers: {X-Agent-Id: admin}
+  request:
+    messages: [{role: user, content: "Hello (auth-03)"}]
+  expect: {http_status: 401}
+
+- id: auth-ok-01
+  control: auth
+  polarity: positive
+  request:
+    messages: [{role: user, content: "Hello (auth-ok-01)"}]
+  expect: {decision: allow}
+
+- id: model-01
+  control: access.model
+  polarity: negative
+  tags: [judge-likely]
+  request:
+    model: gpt-4o
+    messages: [{role: user, content: "Hello (model-01)"}]
+  expect: {decision: block, control_id: access.model}
+
+- id: model-02
+  control: access.model
+  polarity: negative
+  request:
+    model: "../../llama3.2:3b"
+    messages: [{role: user, content: "Hello (model-02)"}]
+  expect: {decision: block, control_id: access.model}
+
+- id: model-ok-01
+  control: access.model
+  polarity: positive
+  request:
+    model: "llama3.2:3b"
+    messages: [{role: user, content: "Hello (model-ok-01)"}]
+  expect: {decision: allow}
+
+- id: path-01
+  control: http
+  polarity: negative
+  path: /api/pull
+  request: {model: "llama3.2:3b"}
+  expect: {http_status: 404}
+
+- id: path-02
+  control: http
+  polarity: negative
+  path: /api/generate
+  request: {model: "llama3.2:3b", prompt: "hi"}
+  expect: {http_status: 404}
+
+- id: path-03
+  control: http
+  polarity: negative
+  method: GET
+  path: /api/tags
+  expect: {http_status: 404}
+
+- id: path-ok-01
+  control: http
+  polarity: positive
+  method: GET
+  path: /v1/models
+  expect: {http_status: 200}
+
+- id: input-01
+  control: http
+  polarity: negative
+  request:
+    messages:
+      - role: user
+        content:
+          - {type: text, text: "What is in this image?"}
+          - {type: image_url, image_url: {url: "https://example.com/cat.png"}}
+  expect: {http_status: 400}
+
+- id: input-03
+  control: http
+  polarity: negative
+  raw_body: "{not json"
+  expect: {http_status: 400}
+
+- id: input-ok-01
+  control: http
+  polarity: positive
+  request:
+    messages:
+      - role: user
+        content:
+          - {type: text, text: "Hello in parts"}
+  expect: {decision: allow}
