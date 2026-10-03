@@ -36,7 +36,7 @@ from control_layer.adapters.telemetry import (
     render_prometheus,
     snapshot_to_json,
 )
-from control_layer.core.errors import AuthError, InputError, UpstreamError
+from control_layer.core.errors import AuditError, AuthError, InputError, UpstreamError
 from control_layer.core.models import Action, Interaction, Message, ToolCall, ToolDef
 from control_layer.core.pipeline import Pipeline, PipelineResult
 from control_layer.core.policy import Policy
@@ -343,6 +343,10 @@ async def chat_completions(request: Request) -> Response:
         payload = await request.json()
     except ValueError as exc:
         raise InputError(f"request body is not valid JSON: {exc}") from exc
+    try:  # JSON may escape lone surrogates, which cannot be hashed, scanned or audited
+        json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise InputError(f"request body is not valid UTF-8 text: {exc.reason}") from exc
     try:
         chat = _ChatRequest.model_validate(payload)
     except ValidationError as exc:
@@ -479,6 +483,11 @@ def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(UpstreamError)
     async def _upstream(_: Request, exc: UpstreamError) -> JSONResponse:
         return _error(502, str(exc), "upstream_error", "bad_gateway")
+
+    @app.exception_handler(AuditError)
+    async def _audit(_: Request, exc: AuditError) -> JSONResponse:
+        # no decision without a receipt (ADR-0004): withhold the answer; the cause is logged
+        return _error(503, "audit log unavailable", "server_error", "audit_unavailable")
 
     @app.exception_handler(StarletteHTTPException)
     async def _http(_: Request, exc: StarletteHTTPException) -> JSONResponse:
