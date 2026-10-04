@@ -1,5 +1,5 @@
 # LENIENT sample policy (deliverable "Sample Configuration"). Same schema as policy.yaml.
-# Run: CONTROL_LAYER_POLICY=config/policy.lenient.yaml make run
+# Run: EGIDA_POLICY=config/policy.lenient.yaml make run
 # Differences from policy.yaml: redact instead of block where possible, higher thresholds,
 # a failing semantic control lets traffic through (on_error: allow), bigger limits and budgets.
 version: 1

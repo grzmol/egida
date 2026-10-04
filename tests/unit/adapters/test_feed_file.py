@@ -9,10 +9,10 @@ from typing import Any
 import pytest
 import yaml
 
-from control_layer.adapters.feed_file import FeedFile
-from control_layer.core.audit import AuditEvent
-from control_layer.core.errors import FeedError
-from control_layer.core.ports import Clock
+from egida.adapters.feed_file import FeedFile
+from egida.core.audit import AuditEvent
+from egida.core.errors import FeedError
+from egida.core.ports import Clock
 
 pytestmark = pytest.mark.anyio
 

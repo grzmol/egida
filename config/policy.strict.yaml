@@ -1,5 +1,5 @@
 # STRICT sample policy (deliverable "Sample Configuration"). Same schema as policy.yaml.
-# Run: CONTROL_LAYER_POLICY=config/policy.strict.yaml make run
+# Run: EGIDA_POLICY=config/policy.strict.yaml make run
 # Differences from policy.yaml: everything blocks (no redaction), lower thresholds,
 # prompt_guard on, tighter limits and budgets, a loop after 3 identical requests.
 version: 1

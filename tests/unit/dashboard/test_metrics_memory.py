@@ -2,9 +2,9 @@ import json
 
 import pytest
 
-from control_layer.adapters.metrics_memory import MetricsMemory, nearest_rank
-from control_layer.core.audit import AuditEvent, FindingSummary
-from control_layer.core.models import Action, BudgetUsage, Category
+from egida.adapters.metrics_memory import MetricsMemory, nearest_rank
+from egida.core.audit import AuditEvent, FindingSummary
+from egida.core.models import Action, BudgetUsage, Category
 
 
 def decision(

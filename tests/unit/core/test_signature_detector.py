@@ -11,11 +11,11 @@ import pytest
 import yaml
 from pydantic import BaseModel, ConfigDict
 
-from control_layer.adapters.budget_memory import InMemoryBudgetStore
-from control_layer.adapters.fake_model import FakeModelClient
-from control_layer.adapters.tool_pins_memory import InMemoryToolPinStore
-from control_layer.core.audit import AuditEvent
-from control_layer.core.models import (
+from egida.adapters.budget_memory import InMemoryBudgetStore
+from egida.adapters.fake_model import FakeModelClient
+from egida.adapters.tool_pins_memory import InMemoryToolPinStore
+from egida.core.audit import AuditEvent
+from egida.core.models import (
     Action,
     Category,
     Interaction,
@@ -24,11 +24,11 @@ from control_layer.core.models import (
     ToolCall,
     ToolDef,
 )
-from control_layer.core.pipeline import Pipeline
-from control_layer.core.policy import build_policy
-from control_layer.core.ports import FeedSnapshot, PolicySnapshot, ScanContext
-from control_layer.core.signature_detector import SignatureDetector
-from control_layer.core.signatures import SignatureParams, compile_feed
+from egida.core.pipeline import Pipeline
+from egida.core.policy import build_policy
+from egida.core.ports import FeedSnapshot, PolicySnapshot, ScanContext
+from egida.core.signature_detector import SignatureDetector
+from egida.core.signatures import MAX_BASE64_CANDIDATES, SignatureParams, compile_feed
 
 pytestmark = pytest.mark.anyio
 
@@ -186,9 +186,20 @@ async def test_pickle_in_tool_result_is_blocked_before_the_model(
 
 
 async def test_scan_limit_fails_closed(policy_dict: dict[str, Any]) -> None:
-    blobs = " ".join(f"{'QUJD' * 4}{i:04d}" for i in range(65))  # 65 base64 candidates
+    count = MAX_BASE64_CANDIDATES + 1
+    blobs = " ".join(f"{'QUJD' * 4}{i:05d}" for i in range(count))  # one past the cap
     pipeline, sink = _pipeline(policy_dict, FakeModelClient())
     result = await pipeline.run(_chat(Message("user", blobs)))
     assert result.decision.blocked_by == "signatures"
     errors = [e for e in sink.events if e.type == "control_error"]
     assert errors and "SignatureLimitError" in (errors[0].detail or "")
+
+
+async def test_harness_prompt_full_of_paths_is_scanned(policy_dict: dict[str, Any]) -> None:
+    # coding harnesses send system prompts with hundreds of paths and identifiers, which match
+    # the base64 candidate pattern; they must be scanned, not fail closed on the limit
+    paths = " ".join(f"/Users/dev/project/src/module_{i:03d}/handler_config.py" for i in range(400))
+    pipeline, sink = _pipeline(policy_dict, FakeModelClient())
+    result = await pipeline.run(_chat(Message("system", paths), Message("user", "hello")))
+    assert result.decision.blocked_by is None
+    assert not [e for e in sink.events if e.type == "control_error"]

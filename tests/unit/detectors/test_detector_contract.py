@@ -2,11 +2,11 @@
 
 import pytest
 
-from control_layer.core.canary import inject_canary
-from control_layer.core.models import Interaction, Message, Side, ToolDef
-from control_layer.core.ports import Detector, DetectorDeps, ScanContext
-from control_layer.core.texts import iter_texts
-from control_layer.detectors import REGISTRY
+from egida.core.canary import inject_canary
+from egida.core.models import Interaction, Message, Side, ToolDef
+from egida.core.ports import Detector, DetectorDeps, ScanContext
+from egida.core.texts import iter_texts
+from egida.detectors import REGISTRY
 
 RAW_VALUES = ("44051401359", "AKIAIOSFODNN7EXAMPLE")
 CANARY = "cl-canary-0123456789abcdef"

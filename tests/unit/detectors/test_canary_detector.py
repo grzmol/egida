@@ -2,12 +2,12 @@ import base64
 
 import pytest
 
-from control_layer.core.canary import inject_canary
-from control_layer.core.models import Category, Interaction, Message, Side, ToolCall
-from control_layer.core.ports import ScanContext
-from control_layer.detectors.canary import CanaryDetector, CanaryParams
+from egida.core.canary import inject_canary
+from egida.core.models import Category, Interaction, Message, Side, ToolCall
+from egida.core.ports import ScanContext
+from egida.detectors.canary import CanaryDetector, CanaryParams
 
-TOKEN = "cl-canary-0123456789abcdef"  # noqa: S105 — test canary, not a secret
+TOKEN = "cl-canary-0123456789abcdef"  # noqa: S105 (test canary, not a secret)
 HEX = "0123456789abcdef"
 
 

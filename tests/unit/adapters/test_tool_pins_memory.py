@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from control_layer.adapters.tool_pins_memory import InMemoryToolPinStore
+from egida.adapters.tool_pins_memory import InMemoryToolPinStore
 
 pytestmark = pytest.mark.anyio
 

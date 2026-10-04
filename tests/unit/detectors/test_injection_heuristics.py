@@ -3,9 +3,9 @@ import base64
 import pytest
 from pydantic import ValidationError
 
-from control_layer.core.models import Category, Interaction, Message, Side, ToolDef
-from control_layer.core.ports import ScanContext
-from control_layer.detectors.injection_heuristics import (
+from egida.core.models import Category, Interaction, Message, Side, ToolDef
+from egida.core.ports import ScanContext
+from egida.detectors.injection_heuristics import (
     InjectionHeuristics,
     InjectionParams,
     find_injection,

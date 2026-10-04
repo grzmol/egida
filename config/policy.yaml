@@ -1,4 +1,4 @@
-# AI Control Layer — policy v1 (schema: src/control_layer/core/policy.py, ADR-0003).
+# Egida: policy v1 (schema: src/egida/core/policy.py, ADR-0003).
 # Edited live: changes apply without restart; an invalid file is rejected and the last valid policy stays.
 version: 1
 

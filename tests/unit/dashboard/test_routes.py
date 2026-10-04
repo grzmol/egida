@@ -9,10 +9,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from control_layer.adapters.metrics_memory import MetricsMemory
-from control_layer.core.audit import AuditEvent, FindingSummary
-from control_layer.core.models import Action, Category
-from control_layer.dashboard import build_router
+from egida.adapters.metrics_memory import MetricsMemory
+from egida.core.audit import AuditEvent, FindingSummary
+from egida.core.models import Action, Category
+from egida.dashboard import build_router
 
 EVENT = AuditEvent(
     type="decision",

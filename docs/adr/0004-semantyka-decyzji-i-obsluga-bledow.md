@@ -14,7 +14,7 @@ Kontrole działają razem i mogą się nie zgadzać. Kontrole semantyczne zależ
 - Kolejność: tanie deterministyczne przed semantycznymi; `BLOCK` przerywa pipeline (bez wywołania modelu i dalszych kontroli).
 - Każda kontrola ma w polityce `timeout` i `on_error: block | allow`. Domyślnie `block` (fail-closed).
 - Błąd kontroli to osobne zdarzenie audytu z przyczyną; nigdy nie znika.
-- Każda decyzja ma w audycie: id żądania, agenta, migawkę wersji polityki, wyniki detektorów, czasy etapów.
+- Każda decyzja ma w dzienniku audytu: id żądania, agenta, migawkę wersji polityki, wyniki detektorów, czasy etapów.
 
 ## Konsekwencje
 

@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from control_layer.adapters.fake_model import FakeGuardModelClient, FakeModelClient
-from control_layer.app import Settings, create_app
+from egida.adapters.fake_model import FakeGuardModelClient, FakeModelClient
+from egida.app import Settings, create_app
 
 pytestmark = pytest.mark.anyio
 

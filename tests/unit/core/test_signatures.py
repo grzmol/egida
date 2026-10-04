@@ -11,18 +11,19 @@ from typing import Any
 
 import pytest
 
-from control_layer.core.errors import FeedError, SignatureLimitError
-from control_layer.core.models import Interaction, Message, Side, ToolCall, ToolDef
-from control_layer.core.policy import build_policy
-from control_layer.core.ports import FeedSnapshot
-from control_layer.core.signatures import (
+from egida.core.errors import FeedError, SignatureLimitError
+from egida.core.models import Interaction, Message, Side, ToolCall, ToolDef
+from egida.core.policy import build_policy
+from egida.core.ports import FeedSnapshot
+from egida.core.signatures import (
+    MAX_BASE64_CANDIDATES,
     SignatureParams,
     compile_feed,
     match_unit_text,
     scan_feed,
     signature_cases,
 )
-from control_layer.core.texts import ScopedText, iter_scoped_texts, iter_texts
+from egida.core.texts import ScopedText, iter_scoped_texts, iter_texts
 
 PICKLE_P4_SYSTEM = "gASVHQAAAAAAAACMBXBvc2l4lIwGc3lzdGVtlJOUjAJpZJSFlFKULg=="  # posix.system("id")
 PICKLE_P0_SYSTEM = "Y29zCnN5c3RlbQooUydpZCcKdFIu"  # protocol 0 os.system, no \x80 magic
@@ -204,9 +205,12 @@ def test_urlsafe_base64_without_padding_is_decoded() -> None:
     assert match_unit_text(_pickle_rule(), urlsafe) is True
 
 
-def test_more_than_64_base64_candidates_is_a_limit_error_not_a_silent_cut() -> None:
-    text = " ".join(base64.b64encode(f"benign blob {i:04d}".encode()).decode() for i in range(65))
-    with pytest.raises(SignatureLimitError, match="64"):
+def test_too_many_base64_candidates_is_a_limit_error_not_a_silent_cut() -> None:
+    count = MAX_BASE64_CANDIDATES + 1
+    text = " ".join(
+        base64.b64encode(f"benign blob {i:05d}".encode()).decode() for i in range(count)
+    )
+    with pytest.raises(SignatureLimitError, match=str(MAX_BASE64_CANDIDATES)):
         match_unit_text(_pickle_rule(), text)
 
 
@@ -278,6 +282,14 @@ def test_stack_global_with_a_non_literal_operand_is_unresolved() -> None:
     rule = _only_rule("[?].[?]", raw)
     assert match_unit_text(rule, _b64(raw)) is True
     assert match_unit_text(rule, PICKLE_P4_SYSTEM) is False
+
+
+def test_bytes_starting_with_stack_global_are_not_a_pickle() -> None:
+    # identifiers in harness prompts look like base64 and can decode to bytes that start with
+    # 0x93 (STACK_GLOBAL); with nothing on the stack the unpickler fails, so nothing is imported
+    raw = b"\x93\xcb>\x99\xa9\xe2}\xeb-\xfa\x07\xa7z\xb6\xad\xa2"
+    rule = _only_rule("[?].[?]", b"\x80\x04K\x01\x8c\x06system\x93.")
+    assert match_unit_text(rule, f"see {_b64(raw)} in the docs") is False
 
 
 @pytest.mark.parametrize("protocol", [0, 2, 4, 5])

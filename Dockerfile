@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# AI Control Layer image. Owner: Maciej (Dev D). Spec: docs/tasks/grzegorz/A7-compose-i-audyt-dlugu.md §2.
+# Egida image. Owner: Maciej (Dev D). Spec: docs/tasks/grzegorz/A7-compose-i-audyt-dlugu.md §2.
 # Pattern from the uv Docker guide: dependency layer separate from the project layer.
 
 # Both stages must use the same image: .venv symlinks to the base image's interpreter.
@@ -29,11 +29,11 @@ COPY signatures /app/signatures
 # /app/var is the only writable directory (audit log).
 RUN mkdir -p /app/var && chown appuser:appuser /app/var
 ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1 \
-    CONTROL_LAYER_POLICY=/app/config/policy.yaml \
-    CONTROL_LAYER_FEED=/app/signatures/feed.yaml \
-    CONTROL_LAYER_AUDIT=/app/var/audit.jsonl
+    EGIDA_POLICY=/app/config/policy.yaml \
+    EGIDA_FEED=/app/signatures/feed.yaml \
+    EGIDA_AUDIT=/app/var/audit.jsonl
 USER appuser
 EXPOSE 8080
 # 0.0.0.0 only inside the container, otherwise the published port is unreachable.
 # Exec form so SIGTERM reaches uvicorn and the lifespan closes its resources.
-CMD ["uvicorn", "control_layer.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "egida.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8080"]

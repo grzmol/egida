@@ -7,11 +7,11 @@ from collections.abc import Callable
 import httpx
 import pytest
 
-from control_layer.adapters.ollama_client import OllamaClient
-from control_layer.core.errors import UpstreamError
-from control_layer.core.models import Interaction, Message
-from control_layer.core.policy import UpstreamConfig
-from control_layer.core.ports import ModelResult
+from egida.adapters.ollama_client import OllamaClient
+from egida.core.errors import UpstreamError
+from egida.core.models import Interaction, Message
+from egida.core.policy import UpstreamConfig
+from egida.core.ports import ModelResult
 
 pytestmark = pytest.mark.anyio
 

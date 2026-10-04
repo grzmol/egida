@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import dataclasses
 
-from control_layer.core.budget import cost, estimate_tokens, fingerprint
-from control_layer.core.models import Interaction, Message, ToolCall, ToolDef
-from control_layer.core.policy import ModelSpec
+from egida.core.budget import cost, estimate_tokens, fingerprint
+from egida.core.models import Interaction, Message, ToolCall, ToolDef
+from egida.core.policy import ModelSpec
 
 
 def _interaction(text: str) -> Interaction:

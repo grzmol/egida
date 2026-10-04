@@ -1,36 +1,36 @@
-# Integration examples
+# Przykłady integracji
 
-Any OpenAI-compatible client works behind the AI Control Layer by changing **two settings**: `base_url` → the proxy, `api_key` → the agent key from the policy. No SDK patches, no new dependencies in the project.
+Każdy klient zgodny z OpenAI działa za Egidą po zmianie **dwóch ustawień**: `base_url` → proxy, `api_key` → klucz API agenta z polityki. Nie musisz zmieniać SDK ani dodawać zależności do projektu.
 
-Start the proxy first (`make run`, or `docker compose up -d` — see `docs/deploy.md`).
+Najpierw uruchom proxy (`make run` albo `docker compose up -d`, patrz `docs/deploy.md`).
 
-| Example | Run |
+| Przykład | Uruchomienie |
 |---|---|
-| `curl.sh` — raw HTTP, shows the `X-Control-*` headers | `bash examples/curl.sh` |
-| `openai_python.py` — OpenAI Python SDK | `uv run --no-project --with openai python examples/openai_python.py` |
-| `openai_node.mjs` — OpenAI Node SDK | `cd examples && npm install --no-save openai && node openai_node.mjs` |
-| `langchain_python.py` — LangChain `ChatOpenAI` | `uv run --no-project --with langchain-openai python examples/langchain_python.py` |
-| `../scripts/demo_agent.py` — agent with tools, indirect injection EN/PL | `uv run --no-project --with openai python scripts/demo_agent.py --scene all` |
+| `curl.sh`: surowe HTTP, pokazuje nagłówki `X-Egida-*` | `bash examples/curl.sh` |
+| `openai_python.py`: OpenAI Python SDK | `uv run --no-project --with openai python examples/openai_python.py` |
+| `openai_node.mjs`: OpenAI Node SDK | `cd examples && npm install --no-save openai && node openai_node.mjs` |
+| `langchain_python.py`: LangChain `ChatOpenAI` | `uv run --no-project --with langchain-openai python examples/langchain_python.py` |
+| `../scripts/demo_agent.py`: agent z narzędziami, pośrednie injection EN/PL | `uv run --no-project --with openai python scripts/demo_agent.py --scene all` |
 
-Environment: `CONTROL_LAYER_URL` (default `http://127.0.0.1:8080/v1`), `CONTROL_LAYER_KEY` (default `sk-demo-agent`; the demo agent uses `CONTROL_LAYER_DEMO_KEY`, default `sk-tools-agent`).
+Zmienne środowiskowe: `EGIDA_URL` (domyślnie `http://127.0.0.1:8080/v1`), `EGIDA_KEY` (domyślnie `sk-demo-agent`). Agent demo używa `EGIDA_DEMO_KEY` (domyślnie `sk-tools-agent`).
 
-## Reading the decision
+## Jak odczytać decyzję
 
-Every response carries a receipt:
+Każda odpowiedź ma potwierdzenie decyzji:
 
-- headers `X-Control-Decision` (`allow` | `redact` | `block`), `X-Control-Request-Id`, `X-Policy-Version`, `X-Policy-Sha256`;
-- body field `control_layer`: `decision`, `blocked_by`, `controls` (findings), `errors`.
+- nagłówki `X-Egida-Decision` (`allow` | `redact` | `block`), `X-Egida-Request-Id`, `X-Policy-Version`, `X-Policy-Sha256`;
+- pole `egida` w treści: `decision`, `blocked_by`, `controls` (znaleziska), `errors`.
 
-A block is an ordinary `200` completion with `finish_reason: "content_filter"` and a short message naming the control and request id, so agents do not crash on it. Clients that ignore extra fields (e.g. LangChain) still see `finish_reason`.
+Blokada to zwykła odpowiedź `200` z `finish_reason: "content_filter"`. Krótki komunikat podaje kontrolę i id żądania. Dzięki temu agent nie przerywa pracy z błędem. Klienci, którzy ignorują dodatkowe pola (np. LangChain), dalej widzą `finish_reason`.
 
-Set `max_retries=0` (Python) / `maxRetries: 0` (Node): SDK retries count twice against the agent's budget and loop detector.
+Ustaw `max_retries=0` (Python) / `maxRetries: 0` (Node). Ponowienia SDK liczą się podwójnie w budżecie agenta i w wykrywaniu pętli.
 
-## Expected output
+## Oczekiwany wynik
 
-| Prompt | Decision | Control |
+| Prompt | Decyzja | Kontrola |
 |---|---|---|
-| "Podaj jedną zaletę przelewów natychmiastowych." | `allow` | — |
+| "Podaj jedną zaletę przelewów natychmiastowych." | `allow` | - |
 | "Mój PESEL to 44051401359, …" | `redact` | `pii` |
 | "Ignore all previous instructions …" | `block` | `injection_heuristics` |
 | "Mój klucz to AKIAIOSFODNN7EXAMPLE …" (curl) | `block` | `secrets` |
-| `POST /api/pull` (curl) | `404` | Ollama API is not proxied |
+| `POST /api/pull` (curl) | `404` | proxy nie przekazuje API Ollamy |

@@ -3,9 +3,9 @@ import time
 import pytest
 from pydantic import ValidationError
 
-from control_layer.core.models import Category, Interaction, Message, Side
-from control_layer.core.ports import ScanContext
-from control_layer.detectors.secrets import (
+from egida.core.models import Category, Interaction, Message, Side
+from egida.core.ports import ScanContext
+from egida.detectors.secrets import (
     SecretsDetector,
     SecretsParams,
     find_secrets,

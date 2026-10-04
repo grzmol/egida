@@ -9,9 +9,9 @@ from typing import Any
 import pytest
 from pydantic import BaseModel, ConfigDict
 
-from control_layer.core.audit import AuditEvent, FindingSummary
-from control_layer.core.errors import PolicyError
-from control_layer.core.models import (
+from egida.core.audit import AuditEvent, FindingSummary
+from egida.core.errors import PolicyError
+from egida.core.models import (
     Action,
     Category,
     Interaction,
@@ -22,8 +22,8 @@ from control_layer.core.models import (
     ToolDef,
     Usage,
 )
-from control_layer.core.policy import build_policy
-from control_layer.core.texts import apply_redactions, iter_texts
+from egida.core.policy import build_policy
+from egida.core.texts import apply_redactions, iter_texts
 
 ROOT = Path(__file__).resolve().parents[3]
 

@@ -1,4 +1,4 @@
-"""B9 audit D1–D8: edge inputs against the detector contract (docs/tasks/sebastian/B9 §3).
+"""B9 audit D1-D8: edge inputs against the detector contract (docs/tasks/sebastian/B9 §3).
 
 Every REGISTRY detector × edge input: no exception, faster than the control's policy timeout,
 findings and spans that keep the port contract, redactions that apply cleanly.
@@ -11,11 +11,11 @@ from pathlib import Path
 import pytest
 import yaml
 
-from control_layer.core.canary import inject_canary
-from control_layer.core.models import Finding, Interaction, Message, Side, ToolDef
-from control_layer.core.ports import Detector, DetectorDeps, ScanContext
-from control_layer.core.texts import apply_redactions, iter_texts
-from control_layer.detectors import REGISTRY
+from egida.core.canary import inject_canary
+from egida.core.models import Finding, Interaction, Message, Side, ToolDef
+from egida.core.ports import Detector, DetectorDeps, ScanContext
+from egida.core.texts import apply_redactions, iter_texts
+from egida.detectors import REGISTRY
 
 POLICY = yaml.safe_load(
     (Path(__file__).resolve().parents[3] / "config" / "policy.yaml").read_text(encoding="utf-8")

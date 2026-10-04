@@ -1,4 +1,4 @@
-# 11 — Brainstorm: perspektywa red teamu jury
+# 11. Brainstorm: perspektywa red teamu jury
 
 Perspektywa: juror bez przygotowania, 10 minut, `curl`, OpenAI SDK, otwarty `policy.yaml`. Kontrole wg [04 §4](04-zagrozenia-i-katalog-kontroli.md); ścieżki z drzewa 04 §3 (A2.2, A3, B3, C). det = deterministyczna, sem = semantyczna.
 
@@ -29,7 +29,7 @@ Perspektywa: juror bez przygotowania, 10 minut, `curl`, OpenAI SDK, otwarty `pol
 
 Poza katalogiem: szkodliwe treści po polsku („jak zrobić metamfetaminę”). `llama-guard3` nie zna polskiego (02 §1a), więc ten przypadek muszą wyłapać PG2 i heurystyki.
 
-## 2. Pułapki fałszywych alarmów (muszą dostać ALLOW)
+## 2. Pułapki fałszywych alarmów (muszą dostać `allow`)
 
 | Prompt | Pułapka |
 |---|---|
@@ -54,7 +54,7 @@ Metryka dla jury: FP-rate na tym zestawie razem z próbką XSTest pokazywany na 
 | `/v1/chat/completions` z buforowanym streamingiem; allowlista ścieżek (A12, A14) | C07 PG2-86M ONNX na wszystkich wiadomościach, okna po 512 tok. |
 | C01, C02 z kanonizacją, C17 + przycinanie `max_tokens`/`n` | `llama-guard3:1b` (wej./wyj.), rozgrzanie modelu przy starcie |
 | warstwa normalizacji (NFKC, zero-width, confusables, dekod b64) wspólna dla wszystkich detektorów | C14 egress, C22 kanarek wstrzykiwany przez proxy do system promptu |
-| C04 PL/EN z sumami kontrolnymi, C05 podstawowe regexy (wej. + wyj.) | C10/C11 + feed z hot reloadem (C18), C03, C09 |
+| C04 PL/EN z sumami kontrolnymi, C05 podstawowe regexy (wej. + wyj.) | C10/C11 + feed z przeładowaniem na żywo (C18), C03, C09 |
 | C06 heurystyki EN+PL (~30 fraz) z negatywami z §2 | C16 wykrywanie pętli, dashboard FP/FN, przebieg garak |
 | C15/C16 atomowo; C19 z regułą „brak sekcji = wyłączona”; C21 | C20 łańcuch hashy |
 | audyt JSONL z **zredagowaną** treścią; `selftest` na ~30 przypadkach | |
@@ -98,13 +98,13 @@ Metryka dla jury: FP-rate na tym zestawie razem z próbką XSTest pokazywany na 
 1. **Streaming** (PLAN §9: „osobny przyrost”): bez buforowania kontrole wyjścia nie działają. Buforowanie od F0.
 2. **C06 w F1, nie w F3**: inaczej draft z 20:00 przepuszcza A01.
 3. **C14 i redakcja audytu (C20): z P1 na P0**: echo-exfil jest trywialny, a surowy PESEL w logu to minus przy przeglądzie logów.
-4. **ADR-0003 nie mówi, co oznacza brak sekcji**: jeśli schemat wymaga wszystkich kontroli [INFERENCE], „usunięcie kontroli” zostanie odrzucone i jury uzna, że hot reload nie działa.
+4. **ADR-0003 nie mówi, co oznacza brak sekcji**: jeśli schemat wymaga wszystkich kontroli [INFERENCE], „usunięcie kontroli” zostanie odrzucone i jury uzna, że przeładowanie na żywo nie działa.
 5. **ADR-0004 nie ustala formatu blokady**: HTTP 200 + `finish_reason: "content_filter"` [INFERENCE: wartość z API OpenAI] + nagłówek `x-control-decision`. 401 tylko dla tożsamości (03 §1).
 
 ## 6. Rekomendacje (ranking)
 
 1. Jedna warstwa normalizacji (NFKC, zero-width, confusables, dekod b64, separatory cyfr) przed **wszystkimi** detektorami, które skanują **wszystkie** wiadomości i opisy narzędzi.
-2. Buforowany streaming i allowlista ścieżek HTTP od F0 (A12–A14).
+2. Buforowany streaming i allowlista ścieżek HTTP od F0 (A12-A14).
 3. C06 z frazami EN/PL i negatywami z §2 w F1, żeby draft z 20:00 przetrwał pierwsze 3 minuty.
-4. Hot reload odporny na zapis przez rename, z semantyką „brak sekcji = wyłączona” i widocznym powodem odrzucenia.
+4. Przeładowanie na żywo odporne na zapis przez rename, z semantyką „brak sekcji = wyłączona” i widocznym powodem odrzucenia.
 5. Atomowy budżet z przycinaniem `max_tokens`/`n`, C14 jako P0, zredagowany audyt i FP-rate na dashboardzie.

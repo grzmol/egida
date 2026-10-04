@@ -3,9 +3,9 @@
 import httpx
 import pytest
 
-from control_layer.core.models import Interaction, Message, Side
-from control_layer.core.ports import ScanContext
-from control_layer.detectors.harmful_content import HarmfulContentDetector, HarmfulContentParams
+from egida.core.models import Interaction, Message, Side
+from egida.core.ports import ScanContext
+from egida.detectors.harmful_content import HarmfulContentDetector, HarmfulContentParams
 
 OLLAMA = "http://127.0.0.1:11434"
 

@@ -3,10 +3,10 @@ import time
 import pytest
 from pydantic import ValidationError
 
-from control_layer.core.models import Category, Interaction, Message, Side, ToolCall
-from control_layer.core.ports import ScanContext
-from control_layer.core.texts import apply_redactions
-from control_layer.detectors.egress import (
+from egida.core.models import Category, Interaction, Message, Side, ToolCall
+from egida.core.ports import ScanContext
+from egida.core.texts import apply_redactions
+from egida.detectors.egress import (
     EGRESS_TOOL_TAGS,
     EgressDetector,
     EgressParams,

@@ -65,7 +65,7 @@ rules:
       positive: ["sha256:../../../../etc/ld.so.preload"]
       negative: ["sha256:04778965089b91318ad61d0995b7e44fad4b9a9f4e049d7be90932bf8812e828"]
   - id: SIG-0006
-    title: Pickle (dowolny protokół) importujący niebezpieczny global — analiza pickletools
+    title: Pickle (dowolny protokół) importujący niebezpieczny global, analiza pickletools
     status: stable
     severity: critical
     action: block
