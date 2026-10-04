@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/img/egida-hero.png" alt="Egida">
+  <img src="docs/assets/egida-hero.png" alt="Egida">
 </p>
 
 <p align="center">
@@ -14,11 +14,10 @@
   <a href="https://docs.astral.sh/uv/"><img src="https://img.shields.io/badge/uv-DE5FE9?style=flat&colorA=222222&logo=uv&logoColor=white" alt="uv"></a>
   <a href="https://ollama.com"><img src="https://img.shields.io/badge/Ollama-FFFFFF?style=flat&colorA=222222&logo=ollama&logoColor=white" alt="Ollama"></a>
   <a href="#testy"><img src="https://img.shields.io/badge/testy-1363%20passed-3FB950?style=flat&colorA=222222" alt="testy: 1363 passed"></a>
-  <a href="docs/DEPENDENCIES.md"><img src="https://img.shields.io/badge/licencje-zale%C5%BCno%C5%9Bci-58A6FF?style=flat&colorA=222222" alt="licencje zależności"></a>
 </p>
 
 <p align="center">
-  Zespół froggers · HackYeah 2026, Kraków · zadanie partnerskie Goldman Sachs „AI Control Layer” · <a href="docs/hackyeah.md">materiały konkursowe</a>
+  Zespół froggers · HackYeah 2026, Kraków · zadanie partnerskie Goldman Sachs „AI Control Layer”
 </p>
 
 Egida stoi między agentem a modelem. Proxy według jednej polityki przepuszcza, redaguje albo blokuje każde żądanie i każdą odpowiedź. Polityka zmienia się na żywo, bez restartu. Proxy pilnuje budżetu każdego agenta i zapisuje dziennik audytu z łańcuchem hashy. Wszystko działa lokalnie.
@@ -41,7 +40,7 @@ make run                      # proxy pod http://127.0.0.1:8080 (działa na pier
 # opcjonalnie, tylko dla kontroli prompt_guard (domyślnie wyłączonej): make models
 ```
 
-**Docker Compose** (proxy i Ollama; model pobiera się przy pierwszym starcie; ok. 4,6 GB do pobrania): `docker compose up --build`. Szczegóły: [`docs/deploy.md`](docs/deploy.md).
+**Docker Compose** (proxy i Ollama; model pobiera się przy pierwszym starcie; ok. 4,6 GB do pobrania): `docker compose up --build`.
 
 ## Konsola Egidy
 
@@ -59,25 +58,25 @@ egd --profile PATH            # inny profil uruchomienia; domyślnie config/egid
 
 Konsola pokazuje `config/policy.yaml` jako jedno drzewo: kontrole, progi, akcje, budżety, agenci i ustawienia uruchomienia. Profil uruchomienia `config/egida.yaml` zawiera host, port, plik polityki, dziennik audytu, feed sygnatur, adres guard LLM i katalog modeli. Bez tego pliku konsola używa wartości domyślnych proxy: `127.0.0.1:8080`, `config/policy.yaml`, `var/audit.jsonl`, `signatures/feed.yaml`, `http://127.0.0.1:11434`, `models`.
 
-<img src="docs/img/egida-root.png" alt="Widok główny konsoli Egidy: drzewo polityki z kontrolami, budżetami, agentami i ustawieniami uruchomienia" width="760">
+<img src="docs/assets/egida-root.png" alt="Widok główny konsoli Egidy: drzewo polityki z kontrolami, budżetami, agentami i ustawieniami uruchomienia" width="760">
 
 ### 02 · Każde pole z własnym edytorem i walidacją proxy
 
 Każde pole kontroli ma własny edytor. Konsola sprawdza każdą zmianę walidacją proxy (`parse_policy`, także parametry detektorów). Konsola nie zapisze polityki z błędami.
 
-<img src="docs/img/egida-control.png" alt="Pola jednej kontroli w konsoli Egidy: rodzaj, strony, akcja, próg i parametry" width="760">
+<img src="docs/assets/egida-control.png" alt="Pola jednej kontroli w konsoli Egidy: rodzaj, strony, akcja, próg i parametry" width="760">
 
 ### 03 · Diff przed zapisem
 
 Przed zapisem (`ctrl+s`) konsola pokazuje diff. Konsola zapisuje plik atomowo i zachowuje komentarze. Jeśli plik polityki zmienił się na dysku po odczycie, konsola pyta przed nadpisaniem.
 
-<img src="docs/img/egida-review.png" alt="Diff zmian polityki w konsoli Egidy przed zapisem" width="760">
+<img src="docs/assets/egida-review.png" alt="Diff zmian polityki w konsoli Egidy przed zapisem" width="760">
 
 ### 04 · Start, stop i przeładowanie na żywo
 
 Konsola uruchamia i zatrzymuje proxy. Działające proxy wczytuje nowy plik polityki w ok. 1 s, a konsola pokazuje, którą wersję polityki proxy ma aktywną. Proxy uruchomione z konsoli zapisuje wyjście do `var/egida-proxy.log`. Konsola zatrzymuje to proxy przy wyjściu.
 
-<img src="docs/img/egida-run.png" alt="Proxy uruchomione z konsoli Egidy ze sprawdzeniem aktywnej polityki" width="760">
+<img src="docs/assets/egida-run.png" alt="Proxy uruchomione z konsoli Egidy ze sprawdzeniem aktywnej polityki" width="760">
 
 ### 05 · Klucze API pokazane jeden raz
 
@@ -87,7 +86,7 @@ Konsola generuje klucze API agentów i pokazuje każdy klucz jeden raz. Do polit
 
 Harness to narzędzie do pracy z kodem z agentem AI, na przykład Claude Code albo Codex. Kreator kieruje ruch modelu wybranych harnessów przez proxy Egidy ([ADR-0009](docs/adr/0009-harnessy-i-protokoly.md)).
 
-<img src="docs/img/egida-wizard.png" alt="Krok kreatora z listą harnessów" width="760">
+<img src="docs/assets/egida-wizard.png" alt="Krok kreatora z listą harnessów" width="760">
 
 Kreator otwiera się przy pierwszym uruchomieniu `egd` (bez pliku profilu), po poleceniu `egd setup` albo z wiersza „Setup wizard” w widoku głównym konsoli. Wiersz „Harnesses” pokazuje włączone harnessy.
 
@@ -153,7 +152,6 @@ Konsola Egidy działa tylko w systemach POSIX (macOS, Linux), natywnie, nie w Do
 | `alt+↑` `alt+↓` | przesuń kontrolę na liście kontroli |
 | Del | usuń wpis |
 
-Pełny opis: [`knowledge-base/console.md`](knowledge-base/console.md).
 
 ## Proxy
 
@@ -216,7 +214,6 @@ Tekst blokady: `Request blocked by Egida (control: X, request: Y).` Proxy usuwa 
 | `prompt_guard` | prompt injection modelem Llama Prompt Guard 2 (ONNX); domyślnie wyłączona |
 | `harmful_content` | treść szkodliwą przez guard LLM (Llama Guard 3); poza domyślną polityką |
 
-Opis pól, progów i parametrów: [`knowledge-base/controls.md`](knowledge-base/controls.md).
 
 ### Polityka
 
@@ -261,36 +258,24 @@ Proxy wywołuje modele guard (B6) pod adresem `EGIDA_GUARD_URL` (domyślnie `htt
 - Na próbach zmieniaj prompt. Ten sam prompt powtórzony w krótkim czasie włącza wykrywanie pętli (`blocked_by: budget.loop`).
 - `make verify-audit`: integralność dziennika audytu. `make bench`: wydajność działającej instancji.
 
-Wyniki red teamu, FP/FN i raport testów: [`docs/hackyeah.md`](docs/hackyeah.md#raport-testów).
 
 ## Dokumentacja
 
 | Dokument | Zawartość |
 |---|---|
-| [`docs/architecture.md`](docs/architecture.md) | Architektura według aktualnego kodu |
-| [`knowledge-base/README.md`](knowledge-base/README.md) | Baza wiedzy o produkcie (HADS, po angielsku) |
 | [`site/index.html`](site/index.html) | Pełna dokumentacja jako strona HTML; `make docs` udostępnia ją pod http://127.0.0.1:8000 (`.github/workflows/pages.yml` może ją opublikować w GitHub Pages, tylko uruchomienie ręczne) |
 | [`docs/adr/README.md`](docs/adr/README.md) | Rejestr decyzji architektonicznych |
-| [`docs/PLAN.md`](docs/PLAN.md) | Plan projektu: etapy F0-F7, zasady przeciw długowi technicznemu, definicja ukończenia |
-| [`docs/hackyeah.md`](docs/hackyeah.md) | Zadanie, kryteria oceny, red team, pokrycie OWASP, raport testów, ujawnienia |
-| [`docs/ai-usage/`](docs/ai-usage/) | Użycie narzędzi AI przez każdą osobę z zespołu |
 
 ## Struktura repozytorium
 
 | Ścieżka | Zawartość |
 |---|---|
-| [`knowledge-base/README.md`](knowledge-base/README.md) | Baza wiedzy o produkcie w formacie HADS, po angielsku: architektura, polityka, kontrole, operacje, konsola Egidy |
-| [`docs/PLAN.md`](docs/PLAN.md) | Plan projektu: etapy, zasady przeciw długowi technicznemu, architektura, definicja ukończenia |
 | [`docs/adr/`](docs/adr/README.md) | Rejestr decyzji architektonicznych (ADR) |
-| [`docs/architecture.md`](docs/architecture.md) | Architektura według aktualnego kodu: przepływ żądania, komponenty, kontrole, semantyka decyzji |
 | [`docs/research/`](docs/research/README.md) | Przegląd istniejących narzędzi, zagrożeń i brainstorming (synteza w `README.md`) |
-| [`docs/WORKPLAN.md`](docs/WORKPLAN.md), [`docs/tasks/`](docs/tasks/) | Plan pracy zespołu (4 osoby): właścicielstwo plików, harmonogram, specyfikacje zadań |
-| [`docs/hackyeah.md`](docs/hackyeah.md) | Materiały konkursowe HackYeah 2026 |
-| [`AGENTS.md`](AGENTS.md) | Instrukcje dla agentów AI, które pracują w repo |
 | `src/egida/` | Kod: `core/` (bez frameworków), `adapters/`, `detectors/`, `dashboard/`, `app.py`; `console/` (konsola Egidy: konfiguracja i uruchamianie proxy w terminalu, ADR-0007) |
 | `config/` | Polityki: `policy.yaml` (domyślna), `policy.strict.yaml`, `policy.lenient.yaml`, `policy.compose.yaml` (Docker); `egida.yaml` (profil uruchomienia; konsola Egidy tworzy ten plik przy zapisie ustawień uruchomienia; bez pliku proxy używa wartości domyślnych) |
 | `signatures/` | Feed sygnatur znanych ataków (`feed.yaml`) i reguła feedu do demo W2 (`demo/sig-0005.yaml`) |
-| `Dockerfile`, `compose.yaml` | Obraz proxy (non-root) i stos z Ollamą (Ollama bez portu na hoście, proxy tylko na `127.0.0.1`); opis w [`docs/deploy.md`](docs/deploy.md) |
+| `Dockerfile`, `compose.yaml` | Obraz proxy (non-root) i stos z Ollamą (Ollama bez portu na hoście, proxy tylko na `127.0.0.1`) |
 | `site/` | Pełna dokumentacja jako statyczna strona HTML (lokalnie `make docs`; GitHub Pages przez ręczny workflow) |
 
 ## Licencje i Built with Llama
@@ -307,6 +292,6 @@ Nie rozpowszechniamy wag modeli. Użytkownik pobiera je razem z licencją (`make
 | `llama-guard3:1b` (Ollama) | Llama 3.2 Community License | detektor `harmful_content`, poza domyślną polityką |
 | `llama3.2:3b` (Ollama) | Llama 3.2 Community License | model czatu w demo (upstream, nie jest częścią kontroli) |
 
-Biblioteki i narzędzia z wersjami i licencjami: [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md).
+Wersje bibliotek są przypięte w `uv.lock`.
 
-**Użycie AI.** Zespół pisał kod, testy i dokumentację z pomocą Claude Code i Gemini CLI. Każda osoba opisuje zakres i weryfikację w [`docs/ai-usage/`](docs/ai-usage/). Pełne ujawnienie AI, modeli, zbiorów danych i pracy sprzed okna: [`docs/hackyeah.md`](docs/hackyeah.md#ujawnienie-ai-i-materiałów).
+**Użycie AI.** Zespół pisał kod, testy i dokumentację z pomocą Claude Code i Gemini CLI.
