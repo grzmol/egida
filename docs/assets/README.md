@@ -4,6 +4,7 @@
 |---|---|
 | `architecture.svg` / `architecture.png` | Diagram przepływu żądania z `docs/architecture.md` (mermaid), PNG 2400 px szerokości |
 | `dashboard.png` | Zrzut `/dashboard` (1600×1000) po `make selftest` i kilku żądaniach demo |
+| `egida-demo.webm` | Wideo demo (1:47, 1280×720): allow/redact/block na prawdziwych żądaniach, zmiana polityki na żywo, odrzucona błędna polityka, weryfikacja audytu. Nagrywa je `scripts/demo_video.cjs` |
 | `egida-*.png` | Grafika tytułowa i zrzuty konsoli Egidy (`egd`) używane w `README.md` |
 
 Zrzut dashboardu z commita `85b0a19`; diagram z `docs/architecture.md` w commicie `7c6ea30` (etapy C03, C09, C22, feed sygnatur, telemetria).
