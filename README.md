@@ -24,6 +24,8 @@ Egida stoi między agentem a modelem. Proxy według jednej polityki przepuszcza,
 
 **8** rodzajów kontroli · **10** reguł w feedzie sygnatur · **13** harnessów · **4** protokoły · **1363** testów offline · narzut proxy p50 **2,2 ms** · Python **3.12**
 
+**Demo (1:47):** [`docs/assets/egida-demo.webm`](docs/assets/egida-demo.webm): allow, redact i block na prawdziwych żądaniach, zmiana polityki na żywo, odrzucona błędna polityka, weryfikacja audytu.
+
 ## Instalacja
 
 **macOS · Linux**
